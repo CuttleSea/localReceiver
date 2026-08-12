@@ -28,9 +28,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@link #OPEN} device, which sees the whole root — the pre-v0.16
  * behavior.
  *
- * <p>Isolation default: a newly paired device is scoped to its own
- * folder named after it, so devices cannot see each other's files
- * until the host widens their path ("" = the whole shared folder).
+ * <p>Isolation default: a newly paired device is scoped to a new folder
+ * named after it, so devices cannot see each other's files until the
+ * host widens their path ("" = the whole shared folder).
+ *
+ * <p>A device's folder is <em>independent of its name</em>: the name
+ * only seeds the folder created at pairing time, and nothing afterwards
+ * ties the two together. Renaming never moves the folder, so several
+ * devices can share one browsing root without a rename stranding the
+ * others; the host repoints a device with the GUI's "Folder…" chooser.
  */
 public final class Devices {
     /**
@@ -169,9 +175,10 @@ public final class Devices {
     }
 
     /**
-     * Consumes a pairing code and creates the device, scoped to its
-     * own folder named after the user-assigned name. The name is
-     * validated BEFORE the code is consumed, so a rejected name does
+     * Consumes a pairing code and creates the device, scoped to a new
+     * folder named after the user-assigned name. That folder is chosen
+     * here and here only — a later rename leaves it untouched. The name
+     * is validated BEFORE the code is consumed, so a rejected name does
      * not burn the code.
      */
     public synchronized PairOutcome pair(String code, String name, Path fileRoot) {
@@ -209,14 +216,15 @@ public final class Devices {
     }
 
     /**
-     * Renames a device; when the device is scoped to its own folder
-     * (last path segment matches the old name, case-insensitively —
-     * pre-v0.18 auto-names could carry upper case), that folder is
-     * renamed too. New names must follow {@link #NAME}. Returns null
-     * on success or an error: "name", "taken", "dir" (folder rename
-     * failed, e.g. target exists), "unknown".
+     * Renames a device. Its folder is deliberately left alone: name and
+     * folder are independent, so renaming never moves files, never
+     * strands the other devices pointed at a shared folder, and cannot
+     * fail on a folder collision. The host repoints a device with the
+     * GUI's "Folder…" chooser instead. New names must follow
+     * {@link #NAME}. Returns null on success or an error: "name",
+     * "taken", "unknown".
      */
-    public synchronized String rename(String id, String newName, Path fileRoot) {
+    public synchronized String rename(String id, String newName) {
         Device device = byId.get(id);
         if (device == null) {
             return "unknown";
@@ -227,31 +235,7 @@ public final class Devices {
         if (!newName.equalsIgnoreCase(device.name()) && nameTaken(newName)) {
             return "taken";
         }
-        String relPath = device.relPath();
-        String[] segments = relPath.isEmpty() ? new String[0] : relPath.split("/");
-        boolean ownFolder = segments.length > 0
-                && segments[segments.length - 1].equalsIgnoreCase(device.name());
-        if (ownFolder) {
-            segments[segments.length - 1] = newName;
-            String newRel = String.join("/", segments);
-            Path from = fileRoot.resolve(relPath).normalize();
-            Path to = fileRoot.resolve(newRel).normalize();
-            if (!to.startsWith(fileRoot)) {
-                return "dir";
-            }
-            try {
-                if (Files.exists(from) && !from.equals(to)) {
-                    if (Files.exists(to)) {
-                        return "dir";
-                    }
-                    Files.move(from, to);
-                }
-            } catch (IOException e) {
-                return "dir";
-            }
-            relPath = newRel;
-        }
-        byId.put(id, new Device(id, newName, relPath,
+        byId.put(id, new Device(id, newName, device.relPath(),
                 device.read(), device.write(), device.browse(),
                 device.denyRead(), device.denyWrite()));
         save();

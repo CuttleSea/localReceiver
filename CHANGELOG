@@ -8,6 +8,27 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
 
 ## Unreleased
 
+## v0.23.0 — device folders decoupled from device names (2026-08-12)
+
+- A device's folder is now independent of its name. Renaming a device
+  changes the name only: no files move, the device keeps pointing at
+  the folder it already had, and the rename can no longer fail on a
+  folder collision (the "dir" error is gone).
+- Because of that, several devices can be pointed at one shared
+  browsing folder and renaming any of them leaves that folder — and
+  the other devices' access to it — untouched. Previously a rename
+  moved the folder out from under them whenever the device happened to
+  be named after it.
+- Pairing still creates a new folder named after the new device, as
+  before; the name only seeds that folder, and the host repoints a
+  device afterwards with "Folder…" in the server window.
+- The server window says so: the Rename… tooltip and dialog note that
+  the folder is unaffected, and the per-device path label notes that
+  folders are independent of names and may be shared.
+- `DevicesTest` covers the new contract: a rename leaves the folder in
+  place, and three devices sharing one root all survive a rename of
+  the one named after that root.
+
 ## v0.22.0 — the file manager release (2026-08-05)
 
 - Uploads now confirm before sending: chosen or dropped files land in
