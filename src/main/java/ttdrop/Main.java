@@ -19,7 +19,7 @@ import ttdrop.server.TtDropServer;
  */
 public final class Main {
     /** Shown in the window title and startup line; bump with pixi.toml. */
-    public static final String VERSION = "0.22.0";
+    public static final String VERSION = "0.23.0";
     public static final int DEFAULT_PORT = 4646;
 
     private Main() {

@@ -204,7 +204,8 @@ public final class ServerWindow extends JFrame {
         JLabel pathLabel = new JLabel(
                 device.relPath().isEmpty() ? "→ (everything)" : "→ " + device.relPath() + "/");
         pathLabel.setFont(pathLabel.getFont().deriveFont(Font.PLAIN));
-        pathLabel.setToolTipText("The only folder this device can see");
+        pathLabel.setToolTipText("The only folder this device can see —"
+                + " independent of the device name, and several devices may share one");
         row.add(pathLabel);
         JButton folderButton = new JButton("Folder…");
         folderButton.setToolTipText("Choose which folder this device may access"
@@ -223,8 +224,8 @@ public final class ServerWindow extends JFrame {
         row.add(permissionBox("Browse", "Allow /files/ listing pages for this device",
                 device.browse(), v -> updateDevice(device.id(), d -> d.withBrowse(v))));
         JButton renameButton = new JButton("Rename…");
-        renameButton.setToolTipText(
-                "Rename this device (a-z, 0-9, _); its folder is renamed with it");
+        renameButton.setToolTipText("Rename this device (a-z, 0-9, _);"
+                + " its folder is unaffected — use Folder… to change that");
         renameButton.addActionListener(e -> renameDevice(device));
         row.add(renameButton);
         JButton removeButton = new JButton("Remove");
@@ -239,20 +240,20 @@ public final class ServerWindow extends JFrame {
         return row;
     }
 
-    /** Rename a device (and its folder, when it is scoped to its own). */
+    /** Rename a device; its folder is independent and stays put. */
     private void renameDevice(ttdrop.server.Devices.Device device) {
         String input = (String) JOptionPane.showInputDialog(this,
-                "New name for \"" + device.name() + "\" (lower-case a-z, 0-9, _):",
+                "New name for \"" + device.name() + "\" (lower-case a-z, 0-9, _)."
+                        + " Its folder does not change:",
                 "ttDrop", JOptionPane.PLAIN_MESSAGE, null, null, device.name());
         if (input == null || input.equals(device.name())) {
             return;
         }
-        String error = server.devices().rename(device.id(), input.trim(), server.getFileRoot());
+        String error = server.devices().rename(device.id(), input.trim());
         if (error != null) {
             String message = switch (error) {
                 case "name" -> "Names may only use lower-case a-z, 0-9 and _ (1-32 chars).";
                 case "taken" -> "That name is already used by another device.";
-                case "dir" -> "The device's folder could not be renamed (does the target exist?).";
                 default -> "Rename failed.";
             };
             JOptionPane.showMessageDialog(this, message, "ttDrop", JOptionPane.ERROR_MESSAGE);

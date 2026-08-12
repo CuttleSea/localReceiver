@@ -138,11 +138,14 @@ is a core design requirement, in both directions (upload and download):
     SameSite=Lax, Secure over HTTPS) whose SHA-256 is stored in
     `~/.config/ttdrop/devices.properties`. Codes are in-memory,
     single-use, 10-minute expiry.
-  - Renaming (GUI "Rename…", `Devices.rename`): same name rules; when
-    the device is scoped to its own folder (last path segment matches
-    the old name, case-insensitively — pre-v0.18 auto-names could
-    carry upper case) that folder is renamed with it. Errors: "name",
-    "taken", "dir" (target exists / move failed).
+  - Renaming (GUI "Rename…", `Devices.rename`): same name rules;
+    **the device's folder is never touched** — since v0.23 name and
+    folder are decoupled, so a rename moves no files, cannot collide,
+    and never strands the other devices pointed at a shared folder.
+    Errors: "name", "taken", "unknown". The folder is set at pairing
+    and changed only by the host (GUI "Folder…",
+    `Device.withRelPath`), which is what lets several devices share one
+    browsing root.
   - Per-subfolder access (GUI "Subfolders…" checklist): each device
     carries `denyRead`/`denyWrite` sets of top-level subfolder names
     inside its subtree — a **deny list, so everything (including
@@ -159,9 +162,12 @@ is a core design requirement, in both directions (upload and download):
     (listings/downloads/zip), `write` (uploads; AND-ed with the
     global file-management toggle for rename/delete), `browse`
     (AND-ed with the global directory-browse toggle).
-  - Isolation default: a new device is scoped to its own folder named
+  - Isolation default: a new device is scoped to a new folder named
     after it, so devices cannot see the host's root or each other
-    until the host widens their path. Upload staging is per device
+    until the host widens their path. The name only seeds that folder
+    at pairing time — nothing afterwards couples the two, so devices
+    may be renamed freely and several may point at one shared folder.
+    Upload staging is per device
     (`.ttdrop-part/<deviceId>-<key>/`), so keys never collide across
     devices and no device can touch another's staging.
   - Open mode (`--open` flag / GUI "Require device pairing" off,
@@ -486,8 +492,10 @@ live `/qr.png` endpoint. Run them for any change touching
 
 Registry tests live in `tests/server/` (single-file Java,
 headless-safe): `java -cp dist/ttdrop.jar tests/server/DevicesTest.java`
-— pairing name validation, code consumption, rename incl. folder moves
-and legacy uppercase names. Run for any change to `Devices`.
+— pairing name validation, code consumption, and rename: that it
+leaves the device's folder alone, that three devices sharing one root
+survive a rename, and the legacy uppercase case. Run for any change to
+`Devices`.
 
 L&F tests live in `tests/laf/` (single-file Java, headless-safe):
 `java -Djava.awt.headless=true -cp dist/ttdrop.jar tests/laf/LafTest.java`
