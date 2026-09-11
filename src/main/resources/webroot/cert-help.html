@@ -27,6 +27,16 @@ the computer running ttDrop and never leaves your network; it can
 only vouch for that computer's own ttDrop servers.
 </p>
 
+<p id="ca-fingerprint-note" hidden>
+<strong>Check the fingerprint first.</strong> The ttDrop window on the
+host computer shows the certificate's SHA-256 fingerprint. This page
+received:<br>
+<code id="ca-fingerprint"></code><br>
+If the two differ, do not install it — someone on the network may be
+impersonating the server. Trusting a certificate authority lasts until
+you remove it, so it is worth the ten seconds.
+</p>
+
 <section>
 <h2>iPhone / iPad (iOS, iPadOS)</h2>
 <ol>
@@ -117,5 +127,6 @@ browser. Everything is served by this ttDrop server on your own network.
 </p>
 <p class="muted">ttDrop — local file transfer. GPL-3.0.</p>
 </footer>
+<script src="/cert-check.js"></script>
 </body>
 </html>

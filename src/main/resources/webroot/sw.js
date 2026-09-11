@@ -1,8 +1,9 @@
 "use strict";
 
-const CACHE = "ttdrop-shell-v15";
+const CACHE = "ttdrop-shell-v16";
 const SHELL = ["/", "/style.css", "/app.js", "/uploader.js", "/downloader.js",
-"/cert-help.html", "/manifest.webmanifest", "/icon.svg", "/icon-512.png"];
+"/cert-check.js", "/cert-help.html", "/manifest.webmanifest", "/icon.svg",
+"/icon-512.png"];
 
 self.addEventListener("install", (event) => {
 event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
@@ -21,6 +22,9 @@ caches
 self.addEventListener("fetch", (event) => {
 const url = new URL(event.request.url);
 if (url.pathname.startsWith("/files/") || url.pathname.startsWith("/api/")) {
+return;
+}
+if (url.pathname === "/ca-fingerprint" || url.pathname === "/ca.crt") {
 return;
 }
 event.respondWith(

@@ -8,6 +8,35 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
 
 ## Unreleased
 
+## v0.24.0 — hardened TLS and pairing trust model (2026-09-11)
+
+- Security: the CA certificate can now be verified before you trust
+  it. The server window prints its SHA-256 fingerprint, and the app
+  and the certificate-install page print the fingerprint the device
+  actually received (new `/ca-fingerprint` endpoint, plus an
+  `X-CA-Fingerprint-SHA256` header on `/ca.crt`) so the two can be
+  compared. Installing a certificate authority is permanent, and
+  without this an attacker on the network path during first pairing
+  could substitute their own CA and go unnoticed.
+- Security: the PKCS12 keystores are no longer protected by a fixed
+  password compiled into the app. Each installation gets 128 random
+  bits, kept in `keystore.pass`; existing installs are re-encrypted on
+  the next HTTPS start, keeping their CA so paired devices stay
+  trusted. Passwords are passed to keytool through a file, never as a
+  command-line argument. The config directory (700) and `ca.p12`,
+  `keystore.p12`, `keystore.pass` (600) are now owner-only on
+  Linux/macOS.
+- Security: clicking the Pair link no longer hands the one-time code
+  to the browser on its command line, where any other user of the
+  computer could read it — the window shows the code to type in
+  instead.
+- Security: copying the Pair link now clears the clipboard 60 seconds
+  later (only if it still holds that link), limiting what clipboard
+  history tools can pick up.
+- Fixed: `/ca-fingerprint` no longer shadows same-prefixed webroot
+  assets — HTTP contexts match by prefix, so the handler now answers
+  only its two exact routes.
+
 ## v0.23.0 — device folders decoupled from device names (2026-08-12)
 
 - A device's folder is now independent of its name. Renaming a device

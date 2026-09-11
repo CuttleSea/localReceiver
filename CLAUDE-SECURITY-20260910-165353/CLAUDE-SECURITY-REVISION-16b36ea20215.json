@@ -1,0 +1,66 @@
+{
+  "generated_at": "2026-09-10T17:12:59+00:00",
+  "duration_s": 1138,
+  "scan_id": "f7fd864b-d86c-4e8d-8058-067d416bd580",
+  "mode": "scan",
+  "scan_prefix": "",
+  "scope": [],
+  "revision": {
+    "versioned": true,
+    "commit": "16b36ea20215363287d6db8946bfbb9f407db235",
+    "branch": "main",
+    "dirty": false
+  },
+  "revision_source": "self-reported",
+  "model": null,
+  "effort": "medium",
+  "run_shape": {
+    "requested_effort": "medium",
+    "collapsed": null,
+    "source": "coverage.json",
+    "diff_files": null,
+    "diff_lines": null,
+    "scope_files": null,
+    "empty_diff": false,
+    "empty_scope": false,
+    "researchers_dispatched": 11,
+    "verification_runs": 1,
+    "skipped_components": [],
+    "completeness_check_outcome": "checked",
+    "unaccounted_top_level_dirs": [],
+    "inventory_fallback": null,
+    "top_level_dir_count": 3,
+    "target_files": 71,
+    "component_cap": 24,
+    "research_coverage": {
+      "files": 63,
+      "read": 41,
+      "not_reached": 20,
+      "unaccounted": 2,
+      "outside_components": 8,
+      "capped": false
+    }
+  },
+  "findings": {
+    "total": 4,
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 1
+  },
+  "verification": {
+    "status": "verified",
+    "candidates": 7,
+    "candidates_deduped": 7,
+    "panel_votes": 21,
+    "panel_reviewed_findings": 4,
+    "panel_quorum_findings": 4,
+    "unreviewed_candidate_sites": 0,
+    "incomplete_panel_candidates": 0,
+    "attested_findings": 0,
+    "reason": null,
+    "reason_kind": null,
+    "researchers_dispatched": 11,
+    "researchers_returned": 11
+  }
+}

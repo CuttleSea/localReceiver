@@ -3,7 +3,7 @@ authors = ["SotongDJ <sotong0221@gmail.com>"]
 channels = ["conda-forge"]
 name = "ttDrop"
 platforms = ["linux-64", "win-64", "osx-64", "osx-arm64"]
-version = "0.23.0"
+version = "0.24.0"
 
 [tasks]
 build = { cmd = "mkdir -p build/classes dist && javac -d build/classes -sourcepath src/main/java src/main/java/ttdrop/Main.java && jar --create --file dist/ttdrop.jar --main-class ttdrop.Main -C build/classes . -C src/main/resources ." }

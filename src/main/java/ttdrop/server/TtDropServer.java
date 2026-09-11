@@ -78,6 +78,8 @@ public final class TtDropServer {
                 this::isPairingRequired, this::isDirBrowseEnabled, this::scheme));
         http.createContext("/qr.png", new QrPngHandler(this::scheme));
         http.createContext("/ca.crt", new CaCertHandler(TlsSupport.caCertificate(ttdrop.Config.dir())));
+        http.createContext(CaCertHandler.FINGERPRINT_PATH,
+                new CaCertHandler(TlsSupport.caCertificate(ttdrop.Config.dir())));
         http.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         http.start();
     }

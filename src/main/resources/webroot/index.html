@@ -90,6 +90,11 @@ Deleted items wait here until restored or removed forever.
 <a href="/cert-help.html">Install the ttDrop certificate</a>
 to remove browser warnings and enable app install on this device.
 </p>
+<p class="muted" id="ca-fingerprint-note" hidden>
+Certificate SHA-256: <code id="ca-fingerprint"></code><br>
+Only install it if this matches the fingerprint shown in the ttDrop
+window on the host computer.
+</p>
 <p class="muted">
 Privacy: this app uses no external JavaScript libraries, no frameworks,
 no external web fonts, and no external APIs beyond those built into your
@@ -97,6 +102,7 @@ browser. Everything is served by this ttDrop server on your own network.
 </p>
 <p class="muted">ttDrop — local file transfer. GPL-3.0.</p>
 </footer>
+<script src="/cert-check.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
