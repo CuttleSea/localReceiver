@@ -123,8 +123,8 @@ is a core design requirement, in both directions (upload and download):
   every file endpoint (`/files/*`, `/api/upload/*`, `/api/files/*`,
   `/api/zip`) requires a paired device session — unpaired requesters
   get 401 and the PWA shows only its pairing screen. Only the app
-  shell, `/api/pair`, `/api/session`, `/ca.crt`, `/cert-help.html`,
-  and `/qr.png` are open. Model (`ttdrop.server.Devices`):
+  shell, `/api/pair`, `/api/session`, `/ca.crt`, `/ca-fingerprint`,
+  `/cert-help.html`, and `/qr.png` are open. Model (`ttdrop.server.Devices`):
   - Pairing: the host shows a one-time code (GUI: the "Pair" row of
     the links panel — QR of `scheme://host:port/?pair=CODE`, copy
     button, clickable; the code is minted at start and re-minted when
@@ -232,8 +232,31 @@ builds the material with the JDK's `keytool` (resolved from
   Delete `keystore.p12` to re-issue under the same CA (e.g. after an
   IP change) — installed trust persists. A pre-CA `keystore.p12`
   (missing CA files) is discarded and re-issued.
-- Fixed keystore password ("ttdrop"): it guards self-signed LAN
-  material in the user's own config dir; PKCS12 requires one.
+- **Per-installation keystore password** (`keystore.pass` in the
+  config dir, 128 random bits of hex): PKCS12 requires a password, and
+  a fixed literal gave anyone who reached the file — a second local
+  account, a home-directory backup, a synced dotfile — the CA private
+  key, and with it the power to mint certificates every device that
+  installed the CA would trust. Installs predating it are re-encrypted
+  in place on the next HTTPS start (`keytool -storepasswd`); if that
+  migration fails for any reason the old password is kept, because
+  losing the CA would invalidate the trust paired devices already
+  installed. Passwords reach keytool as `-storepass:file`/`-new:file`,
+  never as literal arguments — argv is world-readable.
+- **Owner-only key material**: the config dir (700) and `ca.p12`,
+  `keystore.p12`, `keystore.pass` (600) are restricted on POSIX
+  filesystems, best-effort and a no-op on Windows.
+- **CA fingerprint for out-of-band verification**
+  (`TlsSupport.caFingerprint`, upper-case colon-separated SHA-256):
+  installing a CA is an irreversible grant of trust, and an attacker
+  on the network path during first pairing can substitute their own CA
+  for the one the device downloads. The desktop window prints the
+  fingerprint — a channel that attacker does not control — and the app
+  shell and `cert-help.html` print what the device actually received
+  (`/ca-fingerprint`, plus an `X-CA-Fingerprint-SHA256` header on
+  `/ca.crt`) so the user compares the two before trusting it. Keep
+  both halves: the served value proves nothing on its own, the
+  comparison against the window is the whole mechanism.
 
 Caveats to preserve in any related change: without installing the CA,
 devices tap through the browser interstitial once — a merely-accepted
@@ -279,7 +302,21 @@ https://localhost:<port>/` must succeed with no `-k`.
   (`/files/`, only while directory browsing is enabled). Every row is
   clickable (opens the default browser via `java.awt.Desktop.browse`,
   falling back to `xdg-open`/`open`/`rundll32`), copyable, and can be
-  shown in the shared QR panel via its QR toggle.
+  shown in the shared QR panel via its QR toggle. Two rules protect
+  the live pairing code, which is a bearer credential for ten minutes:
+  - **Never hand it to a subprocess.** `openInBrowser` runs every URL
+    through `ServerWindow.stripPairCode` first, because argv is
+    readable by any other local user (`ps`, `/proc/<pid>/cmdline`) and
+    browsers keep it in their own long-lived argv. The operator reads
+    the code off the window and types it; a dialog says so. The QR
+    code still carries it — that is on screen, not in argv.
+  - **Clipboard copies expire.** Copying the Pair row wipes the
+    clipboard again after `CLIPBOARD_CLEAR_SECONDS`, and only if it
+    still holds exactly that text, so clipboard-history tools get a
+    short window and the user's later copies are never destroyed.
+  Below the links the window prints the **CA fingerprint** while
+  serving HTTPS; that display is what makes installing the CA on a
+  device safe (see HTTPS).
 - **GUI theming — the `jacross` package** (Tier 0 subset of the
   JaCross design system): a token layer (`ColorRole`/`Tokens`/`Themes`)
   with OKLab/CIE-L* tonal palettes (`Ok`, `TonalPalette`),
@@ -497,6 +534,23 @@ leaves the device's folder alone, that three devices sharing one root
 survive a rename, and the legacy uppercase case. Run for any change to
 `Devices`.
 
+TLS tests live in `tests/server/` (single-file Java, headless-safe):
+`java -cp dist/ttdrop.jar tests/server/TlsSupportTest.java` — the
+random per-installation keystore password, owner-only permissions,
+migration off the old fixed password with the CA left intact, the CA
+fingerprint (cross-checked against the PEM's own DER bytes), and that
+a corrupt CA store errors instead of silently re-rooting trust. Run
+for any change to `TlsSupport`. The gold end-to-end check stays
+`curl --cacert ~/.config/ttdrop/ca.crt https://localhost:<port>/`
+with no `-k`.
+
+Link-safety tests live in `tests/gui/` (single-file Java,
+headless-safe):
+`java -Djava.awt.headless=true -cp dist/ttdrop.jar tests/gui/LinkSafetyTest.java`
+— that `stripPairCode` removes a live pairing code from every URL
+shape while leaving other parameters alone. Run for any change to how
+the window launches a browser.
+
 L&F tests live in `tests/laf/` (single-file Java, headless-safe):
 `java -Djava.awt.headless=true -cp dist/ttdrop.jar tests/laf/LafTest.java`
 — token contrast (≥4.5:1) across all four language×scheme combos,
@@ -592,6 +646,7 @@ ttDrop/
 ├── pixi.lock             # pixi lockfile, all 4 platforms (tracked)
 ├── tests/browser/        # Node+Playwright E2E tests (see Testing)
 ├── tests/qr/             # QR encoder + /qr.png decoder tests
+├── tests/gui/            # headless pairing-link safety test
 ├── tests/laf/            # headless JaCross L&F render/contrast test
 └── src/main/
     ├── java/jacross/     # Tier 0 design system: tokens, palettes,
@@ -614,7 +669,7 @@ ttDrop/
     │       ├── FileOpsHandler.java# /api/files/: delete, rename, mkdir, move
     │       ├── TrashHandler.java  # /api/trash: recycle bin, restore, purge
     │       ├── QrPngHandler.java  # /qr.png: QR of the site URL
-    │       ├── CaCertHandler.java # /ca.crt: per-user CA download
+    │       ├── CaCertHandler.java # /ca.crt + /ca-fingerprint
     │       └── TlsSupport.java    # CA + server cert generation
     └── resources/
         ├── jacross/
@@ -632,6 +687,9 @@ ttDrop/
             ├── app.js                # UI, browser, transfer orchestration
             ├── uploader.js           # upload worker (OPFS staging)
             ├── downloader.js         # download worker (OPFS staging)
+            ├── cert-check.js         # shows the CA fingerprint to compare
+            │                         #   (name must stay clear of the
+            │                         #   /ca-fingerprint context prefix)
             ├── sw.js                 # service worker (shell cache only)
             ├── manifest.webmanifest  # PWA manifest
             ├── icon.svg              # app icon (light bg, navy glyph)

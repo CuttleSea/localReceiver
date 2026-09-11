@@ -50,8 +50,11 @@ dropped connections and page reloads.
    certificate** in the page footer (also at `/ca.crt`) and trust it —
    ttDrop generates its own per-user certificate authority, so
    installing that one certificate removes the warnings on every
-   future session and lets the page install as an app. Nothing leaves
-   your network. Drop files onto the page to send; tap listed files to
+   future session and lets the page install as an app. **Before you
+   install it, check that the SHA-256 fingerprint the page shows
+   matches the one in the ttDrop window** — if they differ, something
+   on the network is impersonating the server. Nothing leaves your
+   network. Drop files onto the page to send; tap listed files to
    download.
 
 ### Features
@@ -180,7 +183,9 @@ ttDrop 由一個小巧的 **Java 伺服器程式**（Windows/macOS/Linux）加�
    點選頁尾的 **Install the ttDrop certificate**（亦可於 `/ca.crt`
    取得）並信任它——ttDrop 會產生專屬於使用者的憑證授權單位（CA），
    安裝這一張憑證即可移除日後所有工作階段的警告，並允許將頁面安裝為
-   應用程式。一切都不會離開你的網路。將檔案拖放到頁面即可傳送；
+   應用程式。**安裝前請先核對網頁顯示的 SHA-256 憑證指紋與 ttDrop
+   視窗中顯示的是否相同**——若不相同，表示網路上可能有人正在冒充這台
+   伺服器。一切都不會離開你的網路。將檔案拖放到頁面即可傳送；
    點選清單中的檔案即可下載。
 
 ### 功能特色

@@ -40,6 +40,10 @@ public final class ServerWindow extends JFrame {
     private final javax.swing.JCheckBox dirBrowseBox = new javax.swing.JCheckBox("Allow directory browsing");
     private final javax.swing.JCheckBox pairingBox = new javax.swing.JCheckBox("Require device pairing");
     private final JPanel linksPanel = new JPanel();
+    /** Shows the CA fingerprint while serving HTTPS; see rebuildLinks. */
+    private final JPanel caPanel = new JPanel();
+    /** How long a copied pairing link may sit on the clipboard. */
+    private static final int CLIPBOARD_CLEAR_SECONDS = 60;
     /** Live pairing code shown in the Pair link; re-minted on use. */
     private String pairCode;
     /** Which link the QR panel shows: "app", "pair", or "files". */
@@ -113,11 +117,14 @@ public final class ServerWindow extends JFrame {
         main.add(Box.createVerticalStrut(4));
         linksPanel.setLayout(new BoxLayout(linksPanel, BoxLayout.Y_AXIS));
         main.add(linksPanel);
+        caPanel.setLayout(new BoxLayout(caPanel, BoxLayout.Y_AXIS));
+        main.add(caPanel);
         main.add(Box.createVerticalStrut(8));
         main.add(qrPanel);
 
         addressBox.setVisible(false);
         linksPanel.setVisible(false);
+        caPanel.setVisible(false);
         qrPanel.setVisible(false);
         toggleButton.addActionListener(e -> toggle());
         rootButton.addActionListener(e -> chooseRoot());
@@ -388,6 +395,7 @@ public final class ServerWindow extends JFrame {
             rootButton.setEnabled(true);
             addressBox.setVisible(false);
             linksPanel.setVisible(false);
+            caPanel.setVisible(false);
             qrPanel.setVisible(false);
             pairCode = null;
             pack();
@@ -486,14 +494,56 @@ public final class ServerWindow extends JFrame {
         for (var entry : urls.entrySet()) {
             linksPanel.add(linkRow(entry.getKey(), entry.getValue()));
         }
+        rebuildCaFingerprint();
         qrPanel.show(urls.get(qrTarget));
         linksPanel.revalidate();
         linksPanel.repaint();
         pack();
     }
 
+    /**
+     * Shows the CA certificate's SHA-256 fingerprint while serving
+     * HTTPS.
+     *
+     * <p>This window is the out-of-band channel that makes installing
+     * the CA safe: an attacker on the network path can substitute the
+     * certificate the device downloads, but cannot change what is
+     * printed here, so a device showing a different fingerprint is
+     * proof of interference. Without this the device has nothing to
+     * check the downloaded certificate against.
+     */
+    private void rebuildCaFingerprint() {
+        caPanel.removeAll();
+        String fingerprint = server.isHttps()
+                ? ttdrop.server.TlsSupport.caFingerprint(
+                        ttdrop.server.TlsSupport.caCertificate(Config.dir()))
+                : null;
+        caPanel.setVisible(fingerprint != null);
+        if (fingerprint != null) {
+            // Split in two so the 95-character fingerprint does not
+            // stretch the window past a usable width.
+            int half = fingerprint.length() / 2;
+            JLabel label = new JLabel("<html>Certificate SHA-256:<br>"
+                    + fingerprint.substring(0, half) + "<br>"
+                    + fingerprint.substring(half) + "</html>");
+            label.setFont(label.getFont().deriveFont(Font.PLAIN));
+            label.setToolTipText("Compare this with the fingerprint the device shows"
+                    + " before installing the certificate there");
+            JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+            row.add(label);
+            JButton copyButton = new JButton("Copy");
+            copyButton.setToolTipText("Copy the fingerprint");
+            copyButton.addActionListener(e -> copyToClipboard(fingerprint, false));
+            row.add(copyButton);
+            caPanel.add(row);
+        }
+        caPanel.revalidate();
+        caPanel.repaint();
+    }
+
     private JPanel linkRow(String key, String url) {
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+        boolean sensitive = "pair".equals(key);
         String title = switch (key) {
             case "pair" -> "Pair";
             case "files" -> "Files";
@@ -503,8 +553,8 @@ public final class ServerWindow extends JFrame {
         row.add(prefix);
         JLabel link = new JLabel("<html><a href=\"" + url + "\">" + url + "</a></html>");
         link.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
-        link.setToolTipText("pair".equals(key)
-                ? "Open in your default browser (code valid 10 minutes, pairs one device)"
+        link.setToolTipText(sensitive
+                ? "Open in your default browser (the code is not passed to it — type it in)"
                 : "Open in your default browser");
         link.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -514,10 +564,11 @@ public final class ServerWindow extends JFrame {
         });
         row.add(link);
         JButton copyButton = new JButton("Copy");
-        copyButton.setToolTipText("Copy this link");
-        copyButton.addActionListener(e -> java.awt.Toolkit.getDefaultToolkit()
-                .getSystemClipboard().setContents(
-                        new java.awt.datatransfer.StringSelection(url), null));
+        copyButton.setToolTipText(sensitive
+                ? "Copy this link — it carries a live pairing code, so the clipboard is"
+                        + " cleared after " + CLIPBOARD_CLEAR_SECONDS + " seconds"
+                : "Copy this link");
+        copyButton.addActionListener(e -> copyToClipboard(url, sensitive));
         row.add(copyButton);
         javax.swing.JToggleButton qrButton = new javax.swing.JToggleButton("QR");
         qrButton.setToolTipText("Show this link as the QR code below");
@@ -530,23 +581,100 @@ public final class ServerWindow extends JFrame {
         return row;
     }
 
-    /** Opens a URL in the user's default browser. */
+    /**
+     * Opens a URL in the user's default browser, with any live pairing
+     * code stripped first.
+     *
+     * <p>A process's command line is readable by every other local user
+     * ({@code ps}, {@code /proc/<pid>/cmdline}), and browsers and
+     * {@code xdg-open} wrappers keep the URL in their own long-lived
+     * argv — so handing the one-time code to a subprocess would publish
+     * it to anyone on the machine for the whole ten-minute window. The
+     * code stays on screen instead, where the operator reads it and
+     * types it into the device.
+     */
     private void openInBrowser(String url) {
+        String safe = stripPairCode(url);
         try {
             if (java.awt.Desktop.isDesktopSupported()
                     && java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.BROWSE)) {
-                java.awt.Desktop.getDesktop().browse(java.net.URI.create(url));
-                return;
+                java.awt.Desktop.getDesktop().browse(java.net.URI.create(safe));
+            } else {
+                // Linux desktops without java.awt.Desktop browse support.
+                String os = System.getProperty("os.name", "").toLowerCase();
+                String[] cmd = os.contains("win")
+                        ? new String[] {"rundll32", "url.dll,FileProtocolHandler", safe}
+                        : os.contains("mac") ? new String[] {"open", safe}
+                        : new String[] {"xdg-open", safe};
+                new ProcessBuilder(cmd).start();
             }
-            // Linux desktops without java.awt.Desktop browse support.
-            String os = System.getProperty("os.name", "").toLowerCase();
-            String[] cmd = os.contains("win") ? new String[] {"rundll32", "url.dll,FileProtocolHandler", url}
-                    : os.contains("mac") ? new String[] {"open", url}
-                    : new String[] {"xdg-open", url};
-            new ProcessBuilder(cmd).start();
         } catch (IOException ioe) {
             JOptionPane.showMessageDialog(this, "Could not open browser: " + ioe.getMessage(),
                     "ttDrop", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (!safe.equals(url) && pairCode != null) {
+            JOptionPane.showMessageDialog(this,
+                    "Enter this pairing code on the page that just opened:\n\n"
+                            + pairCode + "\n\n"
+                            + "It is not passed to the browser, because other users of this\n"
+                            + "computer could read it from the browser's command line.",
+                    "ttDrop", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    /**
+     * The URL without any {@code pair} query parameter, keeping any
+     * other parameters and the path intact. Public so the headless
+     * link-safety test can cover it without a display.
+     */
+    public static String stripPairCode(String url) {
+        int mark = url.indexOf('?');
+        if (mark < 0) {
+            return url;
+        }
+        StringBuilder kept = new StringBuilder();
+        for (String part : url.substring(mark + 1).split("&")) {
+            if (part.isEmpty() || part.equals("pair") || part.startsWith("pair=")) {
+                continue;
+            }
+            if (!kept.isEmpty()) {
+                kept.append('&');
+            }
+            kept.append(part);
+        }
+        String base = url.substring(0, mark);
+        return kept.isEmpty() ? base : base + "?" + kept;
+    }
+
+    /**
+     * Copies text to the clipboard; a credential-bearing link is wiped
+     * again after {@link #CLIPBOARD_CLEAR_SECONDS} so clipboard history
+     * tools and other local processes have only a short window to read
+     * it. The wipe is skipped if the user has since copied something
+     * else — clearing that would be destroying their data.
+     */
+    private void copyToClipboard(String text, boolean sensitive) {
+        var clipboard = java.awt.Toolkit.getDefaultToolkit().getSystemClipboard();
+        clipboard.setContents(new java.awt.datatransfer.StringSelection(text), null);
+        if (!sensitive) {
+            return;
+        }
+        javax.swing.Timer timer =
+                new javax.swing.Timer(CLIPBOARD_CLEAR_SECONDS * 1000, e -> clearClipboardIf(text));
+        timer.setRepeats(false);
+        timer.start();
+    }
+
+    private void clearClipboardIf(String text) {
+        try {
+            var clipboard = java.awt.Toolkit.getDefaultToolkit().getSystemClipboard();
+            Object current = clipboard.getData(java.awt.datatransfer.DataFlavor.stringFlavor);
+            if (text.equals(current)) {
+                clipboard.setContents(new java.awt.datatransfer.StringSelection(""), null);
+            }
+        } catch (Exception ignored) {
+            // clipboard busy, empty, or holding a non-text flavour: leave it
         }
     }
 
