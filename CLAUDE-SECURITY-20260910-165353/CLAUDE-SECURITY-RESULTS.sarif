@@ -1,0 +1,440 @@
+{
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Claude Security Plugin for Claude Code",
+          "organization": "Anthropic",
+          "informationUri": "https://claude.com/product/claude-security",
+          "version": "0.11.0",
+          "rules": [
+            {
+              "id": "CWE-306",
+              "name": "MissingAuthenticationForCriticalFunction",
+              "shortDescription": {
+                "text": "Missing Authentication for Critical Function"
+              },
+              "fullDescription": {
+                "text": "Missing Authentication for Critical Function (CWE-306, CWE 4.20): findings whose CWE is this entry of the Simplified Mapping view or rolls up to it, reported by Claude Security Plugin for Claude Code from static review of the source."
+              },
+              "help": {
+                "text": "Each alert's message names the finding's own CWE and states the impact, exploit scenario, preconditions and recommended fix; the finding appears under its F<n> id in CLAUDE-SECURITY-RESULTS.md."
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/306.html",
+              "properties": {
+                "tags": [
+                  "security",
+                  "external/cwe/cwe-306"
+                ]
+              }
+            },
+            {
+              "id": "CWE-798",
+              "name": "UseOfHardCodedCredentials",
+              "shortDescription": {
+                "text": "Use of Hard-coded Credentials"
+              },
+              "fullDescription": {
+                "text": "Use of Hard-coded Credentials (CWE-798, CWE 4.20): findings whose CWE is this entry of the Simplified Mapping view or rolls up to it, reported by Claude Security Plugin for Claude Code from static review of the source."
+              },
+              "help": {
+                "text": "Each alert's message names the finding's own CWE and states the impact, exploit scenario, preconditions and recommended fix; the finding appears under its F<n> id in CLAUDE-SECURITY-RESULTS.md."
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/798.html",
+              "properties": {
+                "tags": [
+                  "security",
+                  "external/cwe/cwe-798"
+                ]
+              }
+            },
+            {
+              "id": "CWE-200",
+              "name": "ExposureOfSensitiveInformationToAnUnauthorizedActor",
+              "shortDescription": {
+                "text": "Exposure of Sensitive Information to an Unauthorized Actor"
+              },
+              "fullDescription": {
+                "text": "Exposure of Sensitive Information to an Unauthorized Actor (CWE-200, CWE 4.20): findings whose CWE is this entry of the Simplified Mapping view or rolls up to it, reported by Claude Security Plugin for Claude Code from static review of the source."
+              },
+              "help": {
+                "text": "Each alert's message names the finding's own CWE and states the impact, exploit scenario, preconditions and recommended fix; the finding appears under its F<n> id in CLAUDE-SECURITY-RESULTS.md."
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/200.html",
+              "properties": {
+                "tags": [
+                  "security",
+                  "external/cwe/cwe-200"
+                ]
+              }
+            },
+            {
+              "id": "CWE-522",
+              "name": "InsufficientlyProtectedCredentials",
+              "shortDescription": {
+                "text": "Insufficiently Protected Credentials"
+              },
+              "fullDescription": {
+                "text": "Insufficiently Protected Credentials (CWE-522, CWE 4.20): findings whose CWE is this entry of the Simplified Mapping view or rolls up to it, reported by Claude Security Plugin for Claude Code from static review of the source."
+              },
+              "help": {
+                "text": "Each alert's message names the finding's own CWE and states the impact, exploit scenario, preconditions and recommended fix; the finding appears under its F<n> id in CLAUDE-SECURITY-RESULTS.md."
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/522.html",
+              "properties": {
+                "tags": [
+                  "security",
+                  "external/cwe/cwe-522"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "automationDetails": {
+        "id": "claude-security-plugin/scan/f7fd864b-d86c-4e8d-8058-067d416bd580",
+        "guid": "f7fd864b-d86c-4e8d-8058-067d416bd580"
+      },
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "toolExecutionNotifications": [
+            {
+              "descriptor": {
+                "id": "coverage/files-not-reached"
+              },
+              "level": "note",
+              "message": {
+                "text": "Research coverage: of 63 files in the components researched, 41 read to a conclusion, 20 declared not reached, 2 in no researcher's account; 8 more outside every component"
+              }
+            }
+          ]
+        }
+      ],
+      "originalUriBaseIds": {
+        "%SRCROOT%": {
+          "description": {
+            "text": "The top level of the scanned repository, or the scanned directory when the scan did not run inside a git checkout."
+          }
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CWE-306",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "Trust-on-first-use CA certificate is distributed with no out-of-band integrity check, enabling MITM during pairing.\n\nttDrop's whole HTTPS trust model rests on a device permanently installing the CA certificate served here at GET /ca.crt (registered unauthenticated in TtDropServer.java:80). The endpoint, cert-help.html, the QR code, and app.js never present any fingerprint/hash of the CA for the user to verify out-of-band before trusting it — the client simply downloads and trusts whatever bytes arrive over the network at first-pairing time.\n\nImpact: An attacker positioned on the LAN during a victim's first connection (ARP spoofing, rogue Wi-Fi AP, compromised switch) can intercept the initial handshake — which necessarily presents an as-yet-untrusted, self-signed leaf certificate the browser will let the user click through — and/or intercept the plain download of /ca.crt, substituting their own CA certificate. The victim, following the app's own instructions, installs the attacker's CA as a trusted root. From then on the attacker can transparently and persistently MITM all of that device's ttDrop traffic (and, because installed CAs are usually trusted system/browser-wide, potentially other HTTPS traffic on that device too) with no further indication to the user.\n\nExploit scenario: Victim starts ttDrop in HTTPS mode on a shared/open Wi-Fi network and scans the printed QR code / navigates to the shown URL to pair. An attacker on the same network path answers ARP requests or runs a rogue AP, intercepts the TLS handshake (whose leaf certificate is not yet trusted by anything, so a substituted self-signed cert looks the same to the browser) and the follow-on GET /ca.crt, and returns their own CA certificate and leaf certificate. The victim installs the attacker's CA per cert-help.html's instructions, after which the attacker can decrypt/modify all files transferred and inject files as if they were the real ttDrop host.\n\nPreconditions: Attacker has an active on-path position on the LAN during the victim's very first pairing/CA-install (ARP spoofing, rogue AP, etc.).; Victim completes the documented cert-install workflow (clicks through any browser warning and installs the fetched CA certificate).\n\nRecommendation: Give the user an out-of-band way to verify the CA before trusting it — e.g. display the CA certificate's SHA-256 fingerprint in the desktop GUI (a channel the network attacker does not control) and have cert-help.html/app.js show the same fingerprint for the user to compare before installing, or pin/verify the fingerprint embedded in the QR-code payload itself.\n\nCWE-322. Severity HIGH, confidence medium."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/ttdrop/server/CaCertHandler.java",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 34,
+                  "snippet": {
+                    "text": "byte[] body = Files.readAllBytes(caCert);"
+                  }
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "handle",
+                  "fullyQualifiedName": "handle"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "claudeSecurityPlugin": {
+              "id": "F1",
+              "title": "Trust-on-first-use CA certificate is distributed with no out-of-band integrity check, enabling MITM during pairing",
+              "impact": "An attacker positioned on the LAN during a victim's first connection (ARP spoofing, rogue Wi-Fi AP, compromised switch) can intercept the initial handshake — which necessarily presents an as-yet-untrusted, self-signed leaf certificate the browser will let the user click through — and/or intercept the plain download of /ca.crt, substituting their own CA certificate. The victim, following the app's own instructions, installs the attacker's CA as a trusted root. From then on the attacker can transparently and persistently MITM all of that device's ttDrop traffic (and, because installed CAs are usually trusted system/browser-wide, potentially other HTTPS traffic on that device too) with no further indication to the user.",
+              "file": "src/main/java/ttdrop/server/CaCertHandler.java",
+              "line": 34,
+              "description": "ttDrop's whole HTTPS trust model rests on a device permanently installing the CA certificate served here at GET /ca.crt (registered unauthenticated in TtDropServer.java:80). The endpoint, cert-help.html, the QR code, and app.js never present any fingerprint/hash of the CA for the user to verify out-of-band before trusting it — the client simply downloads and trusts whatever bytes arrive over the network at first-pairing time.",
+              "exploit_scenario": "Victim starts ttDrop in HTTPS mode on a shared/open Wi-Fi network and scans the printed QR code / navigates to the shown URL to pair. An attacker on the same network path answers ARP requests or runs a rogue AP, intercepts the TLS handshake (whose leaf certificate is not yet trusted by anything, so a substituted self-signed cert looks the same to the browser) and the follow-on GET /ca.crt, and returns their own CA certificate and leaf certificate. The victim installs the attacker's CA per cert-help.html's instructions, after which the attacker can decrypt/modify all files transferred and inject files as if they were the real ttDrop host.",
+              "preconditions": [
+                "Attacker has an active on-path position on the LAN during the victim's very first pairing/CA-install (ARP spoofing, rogue AP, etc.).",
+                "Victim completes the documented cert-install workflow (clicks through any browser warning and installs the fetched CA certificate)."
+              ],
+              "category": "Missing Authentication for Critical Function",
+              "severity": "HIGH",
+              "confidence": "medium",
+              "recommendation": "Give the user an out-of-band way to verify the CA before trusting it — e.g. display the CA certificate's SHA-256 fingerprint in the desktop GUI (a channel the network attacker does not control) and have cert-help.html/app.js show the same fingerprint for the user to compare before installing, or pin/verify the fingerprint embedded in the QR-code payload itself.",
+              "cwe_id": "CWE-322",
+              "snippet": "byte[] body = Files.readAllBytes(caCert);",
+              "symbol": "handle",
+              "declared_line": 34,
+              "claudeSecurityPluginFindingId": "v3:7257763ca33e8a9435948780c14f329c6b5bbe366ab0a1c6665faa45cab16d36",
+              "verification": {
+                "panel": {
+                  "true": 3,
+                  "false": 0,
+                  "voters": 3
+                }
+              }
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-798",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Hardcoded PKCS12 password protects the CA and server private keys.\n\nSTORE_PASS is the fixed literal \"ttdrop\" (TlsSupport.java:36), used to encrypt/decrypt every PKCS12 keystore ttDrop creates: ca.p12 (holds the CA's RSA private key that anchors trust for every server certificate the app will ever issue) and keystore.p12 (the live server private key). The same constant is also passed as -storepass to every keytool invocation (lines 89, 93, 113, 117, 122, 132, 137).\n\nImpact: Anyone who can read the keystore files (another local account on a shared machine with a permissive umask, a home-directory backup, a cloud-sync of the dotfiles, a container image layer, etc.) can trivially decrypt them with the publicly-known constant password and recover the CA private key. With that key they can mint arbitrary server certificates that any device which previously installed this CA (via /ca.crt) will silently trust, enabling an undetectable, persistent man-in-the-middle against that device's ttDrop (and, since installed CAs are typically trusted system/browser-wide, potentially other HTTPS traffic on that device).\n\nExploit scenario: On a shared or multi-tenant host running ttDrop, a second local user (or an attacker who obtains a copy of the user's home directory, e.g. through a misconfigured backup) reads ~/.config/ttdrop/ca.p12. No file-specific permission hardening is ever applied by the code (Files.createDirectories/Files.newOutputStream use default OS umask), so on a system with a permissive umask (e.g. 022) the file may be group/world readable. The attacker loads it with KeyStore.getInstance(\"PKCS12\") and the well-known password \"ttdrop\", extracts the CA private key, and issues a certificate for the victim's ttDrop hostname; any device that already trusts the installed ttDrop CA will accept it without warning.\n\nPreconditions: Attacker already has read access to the user's config directory (local multi-user box, backup exposure, synced dotfiles, etc.) — the password itself provides no protection once the file is exposed.; A victim device has previously installed the CA certificate from /ca.crt (the app's documented normal workflow).\n\nRecommendation: Generate a random per-installation keystore password (stored with restrictive file permissions, or protected via an OS keychain/DPAPI) instead of a fixed literal, and explicitly set POSIX file permissions (e.g. 600) on ca.p12/keystore.p12/ca.crt when creating them.\n\nThe source line is not quoted because it holds the credential.\n\nCWE-798. Severity MEDIUM, confidence medium."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/ttdrop/server/TlsSupport.java",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 65
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "sslContext",
+                  "fullyQualifiedName": "sslContext"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "claudeSecurityPlugin": {
+              "id": "F2",
+              "title": "Hardcoded PKCS12 password protects the CA and server private keys",
+              "impact": "Anyone who can read the keystore files (another local account on a shared machine with a permissive umask, a home-directory backup, a cloud-sync of the dotfiles, a container image layer, etc.) can trivially decrypt them with the publicly-known constant password and recover the CA private key. With that key they can mint arbitrary server certificates that any device which previously installed this CA (via /ca.crt) will silently trust, enabling an undetectable, persistent man-in-the-middle against that device's ttDrop (and, since installed CAs are typically trusted system/browser-wide, potentially other HTTPS traffic on that device).",
+              "file": "src/main/java/ttdrop/server/TlsSupport.java",
+              "line": 65,
+              "description": "STORE_PASS is the fixed literal \"ttdrop\" (TlsSupport.java:36), used to encrypt/decrypt every PKCS12 keystore ttDrop creates: ca.p12 (holds the CA's RSA private key that anchors trust for every server certificate the app will ever issue) and keystore.p12 (the live server private key). The same constant is also passed as -storepass to every keytool invocation (lines 89, 93, 113, 117, 122, 132, 137).",
+              "exploit_scenario": "On a shared or multi-tenant host running ttDrop, a second local user (or an attacker who obtains a copy of the user's home directory, e.g. through a misconfigured backup) reads ~/.config/ttdrop/ca.p12. No file-specific permission hardening is ever applied by the code (Files.createDirectories/Files.newOutputStream use default OS umask), so on a system with a permissive umask (e.g. 022) the file may be group/world readable. The attacker loads it with KeyStore.getInstance(\"PKCS12\") and the well-known password \"ttdrop\", extracts the CA private key, and issues a certificate for the victim's ttDrop hostname; any device that already trusts the installed ttDrop CA will accept it without warning.",
+              "preconditions": [
+                "Attacker already has read access to the user's config directory (local multi-user box, backup exposure, synced dotfiles, etc.) — the password itself provides no protection once the file is exposed.",
+                "A victim device has previously installed the CA certificate from /ca.crt (the app's documented normal workflow)."
+              ],
+              "category": "Use of Hard-coded Credentials",
+              "severity": "MEDIUM",
+              "confidence": "medium",
+              "recommendation": "Generate a random per-installation keystore password (stored with restrictive file permissions, or protected via an OS keychain/DPAPI) instead of a fixed literal, and explicitly set POSIX file permissions (e.g. 600) on ca.p12/keystore.p12/ca.crt when creating them.",
+              "cwe_id": "CWE-798",
+              "snippet": "",
+              "symbol": "sslContext",
+              "declared_line": 65,
+              "claudeSecurityPluginFindingId": "v3:6f6147532ae0833009bf8b81b618c652947a045013cebf0b620274f7f5da3510",
+              "verification": {
+                "panel": {
+                  "true": 2,
+                  "false": 1,
+                  "voters": 3
+                }
+              }
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-200",
+          "ruleIndex": 2,
+          "level": "warning",
+          "message": {
+            "text": "One-time pairing code exposed via subprocess command-line argument when launching the browser.\n\nrebuildLinks() (ServerWindow.java:477-478) embeds the live one-time device-pairing code straight into a URL query string (?pair=<code>); that same string is then passed as a literal argv element to xdg-open/open/rundll32 here (and, on the primary path, to whatever helper process java.awt.Desktop.browse() forks at line 538). Command-line arguments of any process are readable by any other local user via ps//proc/<pid>/cmdline, and many browsers/xdg-open wrappers retain the URL in their own long-lived process argv, so the pairing secret is exposed for as long as that process (or the browser tab it opens) stays alive.\n\nImpact: Confidentiality/Integrity: disclosure of a live bearer credential lets an unrelated local user pair a rogue device to the shared server, gaining whatever read/write access is granted to paired devices.\n\nExploit scenario: On a shared or multi-user machine, a second local account runs 'ps auxww | grep pair=' (or polls /proc) around the time the operator clicks Pair; the pairCode captured from the xdg-open/browser argv is then submitted directly against the ttDrop server's pairing endpoint to register the attacker's own device before the code expires.\n\nPreconditions: \"Require device pairing\" is enabled and the server is running; the operator clicks the displayed Pair link (or the Desktop.browse fallback is used); another local account/process on the same machine inspects the process list within the pairing code's 10-minute validity window.\n\nRecommendation: Never place live secrets in subprocess argv. If a browser must be launched with a pairing token, hand the browser a short-lived opaque URL that the server resolves server-side, or otherwise avoid exposing the raw code as a command-line argument.\n\nCWE-214. Severity MEDIUM, confidence medium."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/ttdrop/gui/ServerWindow.java",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 546,
+                  "snippet": {
+                    "text": "new ProcessBuilder(cmd).start();"
+                  }
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "openInBrowser",
+                  "fullyQualifiedName": "openInBrowser"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "claudeSecurityPlugin": {
+              "id": "F3",
+              "title": "One-time pairing code exposed via subprocess command-line argument when launching the browser",
+              "impact": "Confidentiality/Integrity: disclosure of a live bearer credential lets an unrelated local user pair a rogue device to the shared server, gaining whatever read/write access is granted to paired devices.",
+              "file": "src/main/java/ttdrop/gui/ServerWindow.java",
+              "line": 546,
+              "description": "rebuildLinks() (ServerWindow.java:477-478) embeds the live one-time device-pairing code straight into a URL query string (?pair=<code>); that same string is then passed as a literal argv element to xdg-open/open/rundll32 here (and, on the primary path, to whatever helper process java.awt.Desktop.browse() forks at line 538). Command-line arguments of any process are readable by any other local user via ps//proc/<pid>/cmdline, and many browsers/xdg-open wrappers retain the URL in their own long-lived process argv, so the pairing secret is exposed for as long as that process (or the browser tab it opens) stays alive.",
+              "exploit_scenario": "On a shared or multi-user machine, a second local account runs 'ps auxww | grep pair=' (or polls /proc) around the time the operator clicks Pair; the pairCode captured from the xdg-open/browser argv is then submitted directly against the ttDrop server's pairing endpoint to register the attacker's own device before the code expires.",
+              "preconditions": [
+                "\"Require device pairing\" is enabled and the server is running",
+                "the operator clicks the displayed Pair link (or the Desktop.browse fallback is used)",
+                "another local account/process on the same machine inspects the process list within the pairing code's 10-minute validity window"
+              ],
+              "category": "Exposure of Sensitive Information to an Unauthorized Actor",
+              "severity": "MEDIUM",
+              "confidence": "medium",
+              "recommendation": "Never place live secrets in subprocess argv. If a browser must be launched with a pairing token, hand the browser a short-lived opaque URL that the server resolves server-side, or otherwise avoid exposing the raw code as a command-line argument.",
+              "cwe_id": "CWE-214",
+              "snippet": "new ProcessBuilder(cmd).start();",
+              "symbol": "openInBrowser",
+              "declared_line": 546,
+              "claudeSecurityPluginFindingId": "v3:cc7f7590fd5ce98ba43bc6a853577445f62209f5465b6c9a5d74ebcd65119dd0",
+              "verification": {
+                "panel": {
+                  "true": 3,
+                  "false": 0,
+                  "voters": 3
+                }
+              }
+            }
+          }
+        },
+        {
+          "ruleId": "CWE-522",
+          "ruleIndex": 3,
+          "level": "note",
+          "message": {
+            "text": "Pairing credential copied to the shared system clipboard with no protection or expiry.\n\nThe Copy button on the pairing link row places the full pair URL, containing the live one-time pairCode minted by server.devices().newPairingCode() and woven into the URL in rebuildLinks(), onto the OS-wide clipboard via StringSelection, with no subsequent clearing. Any other local application, clipboard-history utility, or cloud clipboard-sync feature running under the same user session can read this bearer credential for as long as it remains on the clipboard.\n\nImpact: Confidentiality: exposure of a live pairing credential to any other process able to read the shared clipboard, enabling unauthorized device pairing.\n\nExploit scenario: A clipboard-history tool or piece of malware already running under the user's session captures the copied pair URL; the attacker later retrieves the still-valid pairCode from that history and uses it to pair an unauthorized device against the shared folder.\n\nPreconditions: pairing is enabled and the operator presses Copy on the Pair row; another local process or clipboard-monitoring tool reads the clipboard before it is overwritten.\n\nRecommendation: Avoid putting live authentication tokens on the general clipboard; if kept, clear the clipboard automatically after a short timeout or a single paste, and warn the user that the code is sensitive.\n\nCWE-522. Severity LOW, confidence medium."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/main/java/ttdrop/gui/ServerWindow.java",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 519,
+                  "snippet": {
+                    "text": ".getSystemClipboard().setContents("
+                  }
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "linkRow",
+                  "fullyQualifiedName": "linkRow"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "claudeSecurityPlugin": {
+              "id": "F4",
+              "title": "Pairing credential copied to the shared system clipboard with no protection or expiry",
+              "impact": "Confidentiality: exposure of a live pairing credential to any other process able to read the shared clipboard, enabling unauthorized device pairing.",
+              "file": "src/main/java/ttdrop/gui/ServerWindow.java",
+              "line": 519,
+              "description": "The Copy button on the pairing link row places the full pair URL, containing the live one-time pairCode minted by server.devices().newPairingCode() and woven into the URL in rebuildLinks(), onto the OS-wide clipboard via StringSelection, with no subsequent clearing. Any other local application, clipboard-history utility, or cloud clipboard-sync feature running under the same user session can read this bearer credential for as long as it remains on the clipboard.",
+              "exploit_scenario": "A clipboard-history tool or piece of malware already running under the user's session captures the copied pair URL; the attacker later retrieves the still-valid pairCode from that history and uses it to pair an unauthorized device against the shared folder.",
+              "preconditions": [
+                "pairing is enabled and the operator presses Copy on the Pair row",
+                "another local process or clipboard-monitoring tool reads the clipboard before it is overwritten"
+              ],
+              "category": "Insufficiently Protected Credentials",
+              "severity": "LOW",
+              "confidence": "medium",
+              "recommendation": "Avoid putting live authentication tokens on the general clipboard; if kept, clear the clipboard automatically after a short timeout or a single paste, and warn the user that the code is sensitive.",
+              "cwe_id": "CWE-522",
+              "snippet": ".getSystemClipboard().setContents(",
+              "symbol": "linkRow",
+              "declared_line": 519,
+              "claudeSecurityPluginFindingId": "v3:1762ae0c7d1e83ccf0f86453e79cbaee3aacbc8596314ad4c98272dff8b40018",
+              "verification": {
+                "panel": {
+                  "true": 2,
+                  "false": 1,
+                  "voters": 3
+                }
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "claudeSecurityPlugin": {
+          "generated_at": "2026-09-10T17:12:59+00:00",
+          "scan_id": "f7fd864b-d86c-4e8d-8058-067d416bd580",
+          "mode": "scan",
+          "scan_prefix": "",
+          "scope": [],
+          "revision": {
+            "versioned": true,
+            "commit": "16b36ea20215363287d6db8946bfbb9f407db235",
+            "branch": "main",
+            "dirty": false
+          },
+          "revision_source": "self-reported",
+          "effort": "medium",
+          "run_shape": {
+            "requested_effort": "medium",
+            "collapsed": null,
+            "source": "coverage.json",
+            "diff_files": null,
+            "diff_lines": null,
+            "scope_files": null,
+            "empty_diff": false,
+            "empty_scope": false,
+            "researchers_dispatched": 11,
+            "skipped_components": [],
+            "completeness_check_outcome": "checked",
+            "unaccounted_top_level_dirs": [],
+            "inventory_fallback": null,
+            "top_level_dir_count": 3,
+            "target_files": 71,
+            "component_cap": 24,
+            "research_coverage": {
+              "files": 63,
+              "read": 41,
+              "not_reached": 20,
+              "unaccounted": 2,
+              "outside_components": 8,
+              "capped": false
+            }
+          },
+          "findings": {
+            "total": 4,
+            "critical": 0,
+            "high": 1,
+            "medium": 2,
+            "low": 1
+          },
+          "verification": {
+            "status": "verified",
+            "candidates": 7,
+            "candidates_deduped": 7,
+            "panel_votes": 21,
+            "panel_reviewed_findings": 4,
+            "panel_quorum_findings": 4,
+            "unreviewed_candidate_sites": 0,
+            "incomplete_panel_candidates": 0,
+            "attested_findings": 0,
+            "reason": null,
+            "researchers_dispatched": 11,
+            "researchers_returned": 11
+          },
+          "target_kind": "git-remote"
+        }
+      },
+      "versionControlProvenance": [
+        {
+          "repositoryUri": "https://github.com/CuttleSea/ttDrop",
+          "revisionId": "16b36ea20215363287d6db8946bfbb9f407db235"
+        }
+      ]
+    }
+  ]
+}
