@@ -8,6 +8,8 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
 
 ## Unreleased
 
+## v0.24.0 — hardened TLS and pairing trust model (2026-09-11)
+
 - Security: the CA certificate can now be verified before you trust
   it. The server window prints its SHA-256 fingerprint, and the app
   and the certificate-install page print the fingerprint the device
