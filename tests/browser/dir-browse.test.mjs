@@ -11,11 +11,11 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const jar = join(repoRoot, "dist", "ttdrop.jar");
+const jar = join(repoRoot, "dist", "localreceiver.jar");
 const pixiJava = join(repoRoot, ".pixi", "envs", "default", "bin", "java");
 const java = process.env.JAVA || (existsSync(pixiJava) ? pixiJava : "java");
 
-const serveDir = mkdtempSync(join(tmpdir(), "ttdrop-dirbrowse-"));
+const serveDir = mkdtempSync(join(tmpdir(), "localreceiver-dirbrowse-"));
 mkdirSync(join(serveDir, "docs & more"));
 writeFileSync(join(serveDir, "docs & more", "note.txt"), "browse works");
 writeFileSync(join(serveDir, "top.bin"), Buffer.from([9, 9]));

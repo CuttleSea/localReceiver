@@ -1,4 +1,4 @@
-package ttdrop.util;
+package localreceiver.util;
 
 import java.awt.image.BufferedImage;
 import java.nio.charset.StandardCharsets;
@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * Minimal QR code encoder — pure JDK, no dependencies (a hard project
- * constraint), sized for ttDrop's need: encoding short URLs for the GUI.
+ * constraint), sized for localReceiver's need: encoding short URLs for the GUI.
  *
  * <p>Supports byte mode, versions 1–5, error correction level M (up to
  * 86 payload bytes — a {@code http://<ip>:<port>/} URL is ~30). All
@@ -388,7 +388,7 @@ public final class QrCode {
         return img;
     }
 
-    /** Test utility: {@code java -cp ttdrop.jar ttdrop.util.QrCode <text> <out.png>} */
+    /** Test utility: {@code java -cp localreceiver.jar localreceiver.util.QrCode <text> <out.png>} */
     public static void main(String[] args) throws Exception {
         javax.imageio.ImageIO.write(toImage(encode(args[0]), 8), "png", Path.of(args[1]).toFile());
     }

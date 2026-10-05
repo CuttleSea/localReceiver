@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#2563eb">
-<title>ttDrop — install the certificate</title>
+<title>localReceiver — install the certificate</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 </head>
 <body>
 <header>
-<h1>Install the ttDrop certificate</h1>
+<h1>Install the localReceiver certificate</h1>
 <p class="muted">
 One-time step per device. Afterwards this server — and every
-future ttDrop session from the same computer — opens without
+future localReceiver session from the same computer — opens without
 warnings, and the page can be installed as an app.
 </p>
 </header>
@@ -21,14 +21,14 @@ warnings, and the page can be installed as an app.
 <main>
 <p>
 First download the certificate:
-<a href="/ca.crt"><strong>ttdrop-ca.crt</strong></a>.
+<a href="/ca.crt"><strong>localreceiver-ca.crt</strong></a>.
 Then follow your platform below. The certificate is generated on
-the computer running ttDrop and never leaves your network; it can
-only vouch for that computer's own ttDrop servers.
+the computer running localReceiver and never leaves your network; it can
+only vouch for that computer's own localReceiver servers.
 </p>
 
 <p id="ca-fingerprint-note" hidden>
-<strong>Check the fingerprint first.</strong> The ttDrop window on the
+<strong>Check the fingerprint first.</strong> The localReceiver window on the
 host computer shows the certificate's SHA-256 fingerprint. This page
 received:<br>
 <code id="ca-fingerprint"></code><br>
@@ -40,36 +40,36 @@ you remove it, so it is worth the ten seconds.
 <section>
 <h2>iPhone / iPad (iOS, iPadOS)</h2>
 <ol>
-<li>Download <a href="/ca.crt">ttdrop-ca.crt</a> in Safari and
+<li>Download <a href="/ca.crt">localreceiver-ca.crt</a> in Safari and
 tap <em>Allow</em> when asked to download a configuration
 profile.</li>
 <li>Open <em>Settings</em> — a <em>Profile Downloaded</em> entry
 appears near the top. Tap it and tap <em>Install</em>.</li>
 <li>Then go to <em>Settings → General → About → Certificate
 Trust Settings</em> and switch on full trust for
-<em>ttDrop CA</em>.</li>
-<li>Reload the ttDrop page.</li>
+<em>localReceiver CA</em>.</li>
+<li>Reload the localReceiver page.</li>
 </ol>
 </section>
 
 <section>
 <h2>Android</h2>
 <ol>
-<li>Download <a href="/ca.crt">ttdrop-ca.crt</a>.</li>
+<li>Download <a href="/ca.crt">localreceiver-ca.crt</a>.</li>
 <li>Open <em>Settings → Security &amp; privacy → More security
 settings → Encryption &amp; credentials → Install a
 certificate → CA certificate</em> (wording varies by
 vendor).</li>
 <li>Choose <em>Install anyway</em> and pick the downloaded
 file.</li>
-<li>Reload the ttDrop page.</li>
+<li>Reload the localReceiver page.</li>
 </ol>
 </section>
 
 <section>
 <h2>Windows</h2>
 <ol>
-<li>Download <a href="/ca.crt">ttdrop-ca.crt</a> and open it.</li>
+<li>Download <a href="/ca.crt">localreceiver-ca.crt</a> and open it.</li>
 <li>Click <em>Install Certificate…</em>, choose
 <em>Local Machine</em> (or <em>Current User</em>).</li>
 <li>Select <em>Place all certificates in the following store</em>
@@ -81,9 +81,9 @@ file.</li>
 <section>
 <h2>macOS</h2>
 <ol>
-<li>Download <a href="/ca.crt">ttdrop-ca.crt</a> and open it —
+<li>Download <a href="/ca.crt">localreceiver-ca.crt</a> and open it —
 Keychain Access imports it.</li>
-<li>In Keychain Access, find <em>ttDrop CA</em> (System or
+<li>In Keychain Access, find <em>localReceiver CA</em> (System or
 login keychain), open it, expand <em>Trust</em>, and set
 <em>When using this certificate</em> to
 <em>Always Trust</em>.</li>
@@ -95,7 +95,7 @@ login keychain), open it, expand <em>Trust</em>, and set
 <h2>Linux</h2>
 <ol>
 <li>System-wide (Debian/Ubuntu):
-<code>sudo cp ttdrop-ca.crt
+<code>sudo cp localreceiver-ca.crt
 /usr/local/share/ca-certificates/ &amp;&amp; sudo
 update-ca-certificates</code>
 (Fedora: <code>/etc/pki/ca-trust/source/anchors/</code> +
@@ -108,24 +108,24 @@ Certificates → Import</em>, trusting it for websites.</li>
 </section>
 
 <p class="muted">
-To undo, remove "ttDrop CA" from the same certificate store.
+To undo, remove "localReceiver CA" from the same certificate store.
 If the server's certificate ever stops matching (for example the
 computer's address changed), delete
 <code>keystore.p12</code> in the server's
-<code>~/.config/ttdrop/</code> — a fresh certificate is issued
+<code>~/.config/localreceiver/</code> — a fresh certificate is issued
 from the same CA, so devices stay trusted.
 </p>
 
-<p><a href="/">← Back to ttDrop</a></p>
+<p><a href="/">← Back to localReceiver</a></p>
 </main>
 
 <footer>
 <p class="muted">
 Privacy: this page uses no external JavaScript libraries, no frameworks,
 no external web fonts, and no external APIs beyond those built into your
-browser. Everything is served by this ttDrop server on your own network.
+browser. Everything is served by this localReceiver server on your own network.
 </p>
-<p class="muted">ttDrop — local file transfer. GPL-3.0.</p>
+<p class="muted">localReceiver — local file transfer. GPL-3.0.</p>
 </footer>
 <script src="/cert-check.js"></script>
 </body>

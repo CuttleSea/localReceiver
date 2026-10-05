@@ -1,11 +1,11 @@
-import ttdrop.gui.ServerWindow;
+import localreceiver.gui.ServerWindow;
 
 /**
  * Headless check that a live pairing code never reaches a subprocess
  * command line: every URL the window hands to the browser goes through
  * ServerWindow.stripPairCode first, and argv is readable by any other
  * local user. Run:
- * java -Djava.awt.headless=true -cp dist/ttdrop.jar tests/gui/LinkSafetyTest.java
+ * java -Djava.awt.headless=true -cp dist/localreceiver.jar tests/gui/LinkSafetyTest.java
  */
 public final class LinkSafetyTest {
     static int pass = 0;

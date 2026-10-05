@@ -1,4 +1,4 @@
-package ttdrop.gui;
+package localreceiver.gui;
 
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;

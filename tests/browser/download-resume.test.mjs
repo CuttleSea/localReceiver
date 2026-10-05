@@ -59,7 +59,7 @@ await page.reload({ waitUntil: "networkidle" });
 const staged = await page.evaluate(async () => {
   const root = await navigator.storage.getDirectory();
   try {
-    const dir = await root.getDirectoryHandle("ttdrop-incoming");
+    const dir = await root.getDirectoryHandle("localreceiver-incoming");
     const names = [];
     for await (const [n] of dir.entries()) names.push(n);
     return names;

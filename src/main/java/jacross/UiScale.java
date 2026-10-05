@@ -47,7 +47,7 @@ public final class UiScale {
         }
         if (scale > 1.01) {
             System.setProperty("sun.java2d.uiScale", String.valueOf(scale));
-            System.out.println("ttDrop UI scale: " + scale
+            System.out.println("localReceiver UI scale: " + scale
                     + " (from GNOME settings; override with -Dsun.java2d.uiScale=...)");
         }
     }

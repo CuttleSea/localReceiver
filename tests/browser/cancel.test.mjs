@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 const payload = randomBytes(12 * 1024 * 1024); // 3 chunks
-const srcPath = join(tmpdir(), "ttdrop-test-cancel.dat");
+const srcPath = join(tmpdir(), "localreceiver-test-cancel.dat");
 writeFileSync(srcPath, payload);
 
 const browser = await launchBrowser();
@@ -39,7 +39,7 @@ await page.waitForTimeout(2000);
 const opfs = await page.evaluate(async () => {
   const root = await navigator.storage.getDirectory();
   try {
-    const dir = await root.getDirectoryHandle("ttdrop-outgoing");
+    const dir = await root.getDirectoryHandle("localreceiver-outgoing");
     const names = [];
     for await (const [n] of dir.entries()) names.push(n);
     return names;
@@ -47,11 +47,11 @@ const opfs = await page.evaluate(async () => {
 });
 console.log("OPFS staging after cancel:", opfs);
 
-const partDir = join(SERVE_DIR, ".ttdrop-part");
+const partDir = join(SERVE_DIR, ".localreceiver-part");
 const serverStaging = existsSync(partDir) ? readdirSync(partDir) : [];
 console.log("server staging after cancel:", serverStaging);
 
-const uploaded = existsSync(join(SERVE_DIR, "ttdrop-test-cancel.dat"));
+const uploaded = existsSync(join(SERVE_DIR, "localreceiver-test-cancel.dat"));
 console.log("file assembled anyway:", uploaded);
 
 // A reload must not resurrect the cancelled transfer.

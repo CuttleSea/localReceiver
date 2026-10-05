@@ -1,6 +1,6 @@
 "use strict";
 
-const OPFS_DIR = "ttdrop-incoming";
+const OPFS_DIR = "localreceiver-incoming";
 
 self.onmessage = async (e) => {
 const msg = e.data;

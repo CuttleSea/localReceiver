@@ -4,9 +4,9 @@ This file is the entry point for any LLM agent (Claude, Copilot, Cursor, etc.)
 working on this repository. Read it fully before making changes, and keep it
 up to date as the project evolves.
 
-## What ttDrop is
+## What localReceiver is
 
-**ttDrop** is a local file-transfer tool with two halves:
+**localReceiver** is a local file-transfer tool with two halves:
 
 1. **Server app (Java)** — a desktop application for Windows, macOS, and
    Linux. When started, it acts as:
@@ -74,11 +74,11 @@ is a core design requirement, in both directions (upload and download):
     8–64 chars) hashed from `name|size|lastModified` — it makes resume
     match across page reloads. It is an identifier, not a security
     digest (crypto.subtle is unavailable in insecure LAN contexts).
-  - Server staging lives in `<fileRoot>/.ttdrop-part/<key>/` (hidden
+  - Server staging lives in `<fileRoot>/.localreceiver-part/<key>/` (hidden
     from `/files/` listings) so partial transfers survive server
     restarts and final assembly is an atomic same-filesystem move.
   - PWA side: `uploader.js` Web Worker stages the file into OPFS
-    (`ttdrop-outgoing/<key>.bin` + `.json`, sync access handles), then
+    (`localreceiver-outgoing/<key>.bin` + `.json`, sync access handles), then
     uploads missing chunks with a small parallel pool (default 3 × 4 MiB)
     and retry/backoff; `app.js` `resumePending()` rescans OPFS on load
     and resumes unfinished transfers. Where OPFS is unavailable the
@@ -87,7 +87,7 @@ is a core design requirement, in both directions (upload and download):
     stripped, no traversal, 255-char cap).
 - **QR endpoint** (implemented): `GET /qr.png` returns a QR PNG of
   `http://<Host header>/` (the URL the requesting client used), with a
-  `?text=` override capped at 80 chars. Backed by `ttdrop.util.QrCode`,
+  `?text=` override capped at 80 chars. Backed by `localreceiver.util.QrCode`,
   a pure-JDK encoder (byte mode, versions 1–5, ECC level M, all eight
   masks) — do not swap it for a library; verify any change with
   `tests/qr/`. The Swing GUI shows the same QR for its address picker.
@@ -100,11 +100,11 @@ is a core design requirement, in both directions (upload and download):
   blocked), and `move?path=&to=` (into target directory, "" = device
   root; " (n)" suffix on conflict; a folder never moves into its own
   subtree). All resolve strictly inside the device subtree — never
-  the root itself, `.ttdrop-part`, or `.ttdrop-trash` — via the
+  the root itself, `.localreceiver-part`, or `.localreceiver-trash` — via the
   upload sanitizers (`FileOpsHandler`). The `/files/` listing
   advertises `fileOps` = the device's write grant.
 - **Recycle bin** (implemented, `TrashHandler`): delete moves entries
-  to `<fileRoot>/.ttdrop-trash/<id>/item/<name>` with a sidecar meta
+  to `<fileRoot>/.localreceiver-trash/<id>/item/<name>` with a sidecar meta
   (original path relative to the file root, deleting device id,
   timestamp) — nothing is destroyed until purged. `GET /api/trash`
   lists ONLY the requesting device's items;
@@ -113,7 +113,7 @@ is a core design requirement, in both directions (upload and download):
   location is outside the device subtree or write-denied);
   `POST /api/trash/purge?id=` deletes forever. The trash dir is
   hidden from listings, excluded from zips, and unreachable as a
-  client path (sanitizePath rejects `.ttdrop-part`/`.ttdrop-trash`
+  client path (sanitizePath rejects `.localreceiver-part`/`.localreceiver-trash`
   segments — this also closes writes into the staging area).
 - **Zip downloads** (implemented): `GET /api/zip?path=<dir>` streams a
   recursive zip of a directory (empty path = whole root; staging
@@ -124,7 +124,7 @@ is a core design requirement, in both directions (upload and download):
   `/api/zip`) requires a paired device session — unpaired requesters
   get 401 and the PWA shows only its pairing screen. Only the app
   shell, `/api/pair`, `/api/session`, `/ca.crt`, `/ca-fingerprint`,
-  `/cert-help.html`, and `/qr.png` are open. Model (`ttdrop.server.Devices`):
+  `/cert-help.html`, and `/qr.png` are open. Model (`localreceiver.server.Devices`):
   - Pairing: the host shows a one-time code (GUI: the "Pair" row of
     the links panel — QR of `scheme://host:port/?pair=CODE`, copy
     button, clickable; the code is minted at start and re-minted when
@@ -134,9 +134,9 @@ is a core design requirement, in both directions (upload and download):
     the device list** (`Devices.NAME`). `POST /api/pair?code=&name=`
     → 400 bad name / 409 taken / 403 bad code; the name is validated
     BEFORE the code is consumed, so rejects never burn a code. On
-    success the server sets an HttpOnly session cookie (`ttdrop=`,
+    success the server sets an HttpOnly session cookie (`localreceiver=`,
     SameSite=Lax, Secure over HTTPS) whose SHA-256 is stored in
-    `~/.config/ttdrop/devices.properties`. Codes are in-memory,
+    `~/.config/localreceiver/devices.properties`. Codes are in-memory,
     single-use, 10-minute expiry.
   - Renaming (GUI "Rename…", `Devices.rename`): same name rules;
     **the device's folder is never touched** — since v0.23 name and
@@ -168,14 +168,14 @@ is a core design requirement, in both directions (upload and download):
     at pairing time — nothing afterwards couples the two, so devices
     may be renamed freely and several may point at one shared folder.
     Upload staging is per device
-    (`.ttdrop-part/<deviceId>-<key>/`), so keys never collide across
+    (`.localreceiver-part/<deviceId>-<key>/`), so keys never collide across
     devices and no device can touch another's staging.
   - Open mode (`--open` flag / GUI "Require device pairing" off,
     persisted as config `pairing`): every request resolves to the
     virtual OPEN device with full access — the pre-v0.16 behavior.
     The browser test suite runs its shared server this way;
     `pairing.test.mjs` covers the default posture.
-  - `TTDROP_CONFIG_DIR` overrides the config dir (tests use it to
+  - `LOCALRECEIVER_CONFIG_DIR` overrides the config dir (tests use it to
     avoid touching the real `devices.properties`).
 - **Download protocol** (implemented): `/files/<path>` supports `HEAD`
   and single-range `Range: bytes=a-b` GETs (206 + `Content-Range`,
@@ -204,7 +204,7 @@ is a core design requirement, in both directions (upload and download):
   script. Keep that CSP and escaping intact in any change. The PWA's
   `downloader.js` worker fetches chunks in parallel with Range requests,
   writes them at their offsets into an OPFS staging file
-  (`ttdrop-incoming/<key>.bin` + `.json` tracking completed indexes and
+  (`localreceiver-incoming/<key>.bin` + `.json` tracking completed indexes and
   the ETag), and resumes across reloads; an ETag mismatch on resume
   restarts the transfer. When complete, the main thread hands the staged
   file to the browser as a blob-URL save. **Staging must not be deleted
@@ -215,14 +215,14 @@ is a core design requirement, in both directions (upload and download):
 ### HTTPS
 
 The server serves **HTTPS by default** (`--http` or the GUI checkbox
-opts out; the choice persists in config). `ttdrop.server.TlsSupport`
+opts out; the choice persists in config). `localreceiver.server.TlsSupport`
 builds the material with the JDK's `keytool` (resolved from
-`java.home`) in `~/.config/ttdrop/`:
+`java.home`) in `~/.config/localreceiver/`:
 
 - **Per-user CA, generated on the first HTTPS run and reused for all
   sessions**: `ca.p12` (key) + `ca.crt` (PEM export, public half only).
   Served at `GET /ca.crt` and linked from the PWA footer — installing
-  it once on a device makes every ttDrop server certificate trusted,
+  it once on a device makes every localReceiver server certificate trusted,
   present and future, which also unlocks service workers and PWA
   install. Never regenerate the CA implicitly except when `ca.crt`/
   `ca.p12` are missing (that would invalidate installed trust).
@@ -263,8 +263,8 @@ devices tap through the browser interstitial once — a merely-accepted
 cert still gives a secure context (OPFS staging and reload-resume
 work), but Chromium refuses **service-worker** scripts over it, so the
 app must keep registering the SW best-effort and degrading gracefully.
-URLs and QR codes must always follow `TtDropServer.scheme()`. The gold
-verification for TLS changes: `curl --cacert ~/.config/ttdrop/ca.crt
+URLs and QR codes must always follow `LocalReceiverServer.scheme()`. The gold
+verification for TLS changes: `curl --cacert ~/.config/localreceiver/ca.crt
 https://localhost:<port>/` must succeed with no `-k`.
 
 ### Server runtime layout
@@ -286,15 +286,15 @@ https://localhost:<port>/` must succeed with no `-k`.
   manifest, service worker, icons) are embedded in the jar and served by
   the server **on demand** from its resources. Do not scaffold a webroot
   directory next to the jar or read PWA assets from the filesystem.
-- **Configuration** lives in `.config/ttdrop/` under the **user home
-  directory** (i.e. `~/.config/ttdrop/`, resolved via `user.home` — the
+- **Configuration** lives in `.config/localreceiver/` under the **user home
+  directory** (i.e. `~/.config/localreceiver/`, resolved via `user.home` — the
   same layout on Windows, macOS, and Linux). Config never lives in the
   working directory; the working directory is exclusively the file area.
-  Implemented as `ttdrop.Config` (`config.properties`; keys: `port`,
+  Implemented as `localreceiver.Config` (`config.properties`; keys: `port`,
   `https` (default true), `root`, `autostart` (default false),
   `dirBrowse` (default false), `pairing` (default true); a legacy
   `fileOps` key is ignored); paired devices live in
-  `devices.properties` beside it. `TTDROP_CONFIG_DIR` overrides the
+  `devices.properties` beside it. `LOCALRECEIVER_CONFIG_DIR` overrides the
   directory. The GUI's shared-folder chooser is bounded to the
   working directory the jar was started from.
 - The GUI shows a **links panel** while running: App (`/`), Pair
@@ -321,7 +321,7 @@ https://localhost:<port>/` must succeed with no `-k`.
   JaCross design system): a token layer (`ColorRole`/`Tokens`/`Themes`)
   with OKLab/CIE-L* tonal palettes (`Ok`, `TonalPalette`),
   `JaCrossLaf extends BasicLookAndFeel` with delegates for the
-  controls ttDrop uses (button, combo box; check box via a Path2D
+  controls localReceiver uses (button, combo box; check box via a Path2D
   icon; fields via a shared focus-aware rounded border), and a
   `Platform` probe (OS dark mode via reg/defaults/gsettings, Windows
   accent via desktop property — each optional, 2s-bounded, quiet
@@ -391,7 +391,7 @@ https://localhost:<port>/` must succeed with no `-k`.
   enhancement with a pure-Java fallback, never a requirement — the
   JaCross rule of the lowest rung.
 - The server serves everything the PWA needs; devices on the LAN must not
-  need internet access for ttDrop to work.
+  need internet access for localReceiver to work.
 
 ### General
 - The project is licensed **GPL-3.0**. Do not add code copied from
@@ -498,8 +498,8 @@ Rules:
 
 Tasks (run from the repo root):
 
-- `pixi run build` — compiles `src/main/java` (entry `ttdrop.Main`) into
-  `build/classes` and packages `dist/ttdrop.jar` with the embedded
+- `pixi run build` — compiles `src/main/java` (entry `localreceiver.Main`) into
+  `build/classes` and packages `dist/localreceiver.jar` with the embedded
   webroot from `src/main/resources`.
 - `pixi run run` — builds then runs the jar.
 - `pixi run clean` — removes `build/` and `dist/`.
@@ -525,34 +525,34 @@ plainly in your summary what was and was not verified.
 QR tests live in `tests/qr/` (`npm install` there once, then
 `node qr.test.mjs`): encoder round-trips decoded with jsqr plus the
 live `/qr.png` endpoint. Run them for any change touching
-`ttdrop.util.QrCode` or `QrPngHandler`.
+`localreceiver.util.QrCode` or `QrPngHandler`.
 
 Registry tests live in `tests/server/` (single-file Java,
-headless-safe): `java -cp dist/ttdrop.jar tests/server/DevicesTest.java`
+headless-safe): `java -cp dist/localreceiver.jar tests/server/DevicesTest.java`
 — pairing name validation, code consumption, and rename: that it
 leaves the device's folder alone, that three devices sharing one root
 survive a rename, and the legacy uppercase case. Run for any change to
 `Devices`.
 
 TLS tests live in `tests/server/` (single-file Java, headless-safe):
-`java -cp dist/ttdrop.jar tests/server/TlsSupportTest.java` — the
+`java -cp dist/localreceiver.jar tests/server/TlsSupportTest.java` — the
 random per-installation keystore password, owner-only permissions,
 migration off the old fixed password with the CA left intact, the CA
 fingerprint (cross-checked against the PEM's own DER bytes), and that
 a corrupt CA store errors instead of silently re-rooting trust. Run
 for any change to `TlsSupport`. The gold end-to-end check stays
-`curl --cacert ~/.config/ttdrop/ca.crt https://localhost:<port>/`
+`curl --cacert ~/.config/localreceiver/ca.crt https://localhost:<port>/`
 with no `-k`.
 
 Link-safety tests live in `tests/gui/` (single-file Java,
 headless-safe):
-`java -Djava.awt.headless=true -cp dist/ttdrop.jar tests/gui/LinkSafetyTest.java`
+`java -Djava.awt.headless=true -cp dist/localreceiver.jar tests/gui/LinkSafetyTest.java`
 — that `stripPairCode` removes a live pairing code from every URL
 shape while leaving other parameters alone. Run for any change to how
 the window launches a browser.
 
 L&F tests live in `tests/laf/` (single-file Java, headless-safe):
-`java -Djava.awt.headless=true -cp dist/ttdrop.jar tests/laf/LafTest.java`
+`java -Djava.awt.headless=true -cp dist/localreceiver.jar tests/laf/LafTest.java`
 — token contrast (≥4.5:1) across all four language×scheme combos,
 embedded-font CJK coverage, and offscreen renders of every themed
 control. Run it for any change under `src/main/java/jacross/`.
@@ -563,11 +563,11 @@ fileops, zip-download, inline-view, dir-browse, pairing, and
 subdir-acl `.test.mjs` files; shared setup in `lib.mjs`, orchestrated
 by `run.sh` (starts a headless `--open` server on a temp dir, waits
 for readiness — never a fixed sleep, the first HTTPS start generates
-TLS material — and runs them all; `TTDROP_SCHEME=https` reruns the
+TLS material — and runs them all; `LOCALRECEIVER_SCHEME=https` reruns the
 suite over TLS). Upload tests must confirm the queue (`#upload-button`)
 after `setInputFiles` — nothing uploads unconfirmed. Tests covering
 default postures (dir-browse, pairing) spawn their own servers with
-the flags they need — pairing uses `TTDROP_CONFIG_DIR` so test
+the flags they need — pairing uses `LOCALRECEIVER_CONFIG_DIR` so test
 devices never touch the real config. They need Node.js, the `playwright`
 package, and Chromium — deliberately not in the pixi env to keep it
 lean. Run every one of them before finishing a batch that touches
@@ -601,7 +601,7 @@ Facts future agent sessions will otherwise rediscover the hard way:
   `/opt/pw-browsers/`). `http://localhost` is a secure context, so
   OPFS and service workers are fully testable headlessly.
 - **Do not `pkill -f` with a pattern that appears in your own command
-  line** (e.g. `pkill -f ttdrop.jar`) — it kills your own shell. Kill
+  line** (e.g. `pkill -f localreceiver.jar`) — it kills your own shell. Kill
   Java test servers via `for pid in $(pgrep -x java); do kill $pid; done`.
 - Java processes pick up proxy settings via `JAVA_TOOL_OPTIONS`
   automatically; harmless "Picked up JAVA_TOOL_OPTIONS" lines appear on
@@ -624,9 +624,9 @@ release's title/notes or creates a missing release tagged at the
 triggering commit — so add one new version section per run and trigger
 from the merge commit that should carry the tag. It also builds the
 jar (Temurin 25) and attaches it to the newest release under the
-**versioned asset name `ttdrop_v{x}r{y}n{z}.jar`** for version
-v{x}.{y}.{z} (e.g. v0.17.0 → `ttdrop_v0r17n0.jar`) — never plain
-`ttdrop.jar`.
+**versioned asset name `localreceiver_v{x}r{y}n{z}.jar`** for version
+v{x}.{y}.{z} (e.g. v0.17.0 → `localreceiver_v0r17n0.jar`) — never plain
+`localreceiver.jar`.
 Editing past notes is fine: edit CHANGELOG, merge, re-trigger — the
 sync is idempotent. This workflow exists because cloud sessions cannot
 push tags; from a local device, plain `git tag` + `git push origin
@@ -635,7 +635,7 @@ push tags; from a local device, plain `git tag` + `git push origin
 ## Directory map
 
 ```
-ttDrop/
+localReceiver/
 ├── AGENT.md              # this guide
 ├── CHANGELOG             # changelog; source of GitHub release notes
 ├── LICENSE               # GPL-3.0
@@ -652,15 +652,15 @@ ttDrop/
     ├── java/jacross/     # Tier 0 design system: tokens, palettes,
     │   │                 #   Platform probe, JaCrossLaf (+ plaf/ delegates)
     │   └── ...
-    ├── java/ttdrop/
+    ├── java/localreceiver/
     │   ├── Main.java             # entry point; GUI or --headless
-    │   ├── Config.java           # ~/.config/ttdrop/config.properties
+    │   ├── Config.java           # ~/.config/localreceiver/config.properties
     │   ├── util/QrCode.java      # pure-JDK QR encoder (v1-5, ECC M)
     │   ├── gui/ServerWindow.java # Swing control window (IP picker, QR)
     │   ├── gui/FolderPicker.java # folder dialog (JFileChooser is blank
     │   │                         #   under JaCrossLaf — never use it)
     │   └── server/
-    │       ├── TtDropServer.java  # HttpServer wiring, LAN addresses
+    │       ├── LocalReceiverServer.java  # HttpServer wiring, LAN addresses
     │       ├── Devices.java       # pairing codes, sessions, grants
     │       ├── PairHandler.java   # /api/pair, /api/session
     │       ├── WebRootHandler.java# embedded PWA assets from the jar
@@ -678,7 +678,7 @@ ttDrop/
         │   │                           #   CFF OTFs render as a fallback
         │   │                           #   face on some JDK builds
         │   └── OFL.txt                 # its licence — ships with the font
-        ├── ttdrop/
+        ├── localreceiver/
         │   └── icon.png                # window/taskbar icon (dark bg)
         └── webroot/
             ├── index.html            # app shell

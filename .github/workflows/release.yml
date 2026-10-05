@@ -54,15 +54,15 @@ jobs:
       - name: Build jar
         run: |
           mkdir -p build/classes dist
-          javac -d build/classes -sourcepath src/main/java src/main/java/ttdrop/Main.java
-          jar --create --file dist/ttdrop.jar --main-class ttdrop.Main -C build/classes . -C src/main/resources .
+          javac -d build/classes -sourcepath src/main/java src/main/java/localreceiver/Main.java
+          jar --create --file dist/localreceiver.jar --main-class localreceiver.Main -C build/classes . -C src/main/resources .
 
       - name: Attach jar to the newest release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           newest=$(grep -oE '^## v[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG | head -1 | awk '{print $2}')
-          # Asset naming convention: vX.Y.Z -> ttdrop_vXrYnZ.jar
-          asset="ttdrop_$(echo "$newest" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)$/v\1r\2n\3/').jar"
-          cp dist/ttdrop.jar "dist/$asset"
+          # Asset naming convention: vX.Y.Z -> localreceiver_vXrYnZ.jar
+          asset="localreceiver_$(echo "$newest" | sed -E 's/^v([0-9]+)\.([0-9]+)\.([0-9]+)$/v\1r\2n\3/').jar"
+          cp dist/localreceiver.jar "dist/$asset"
           gh release upload "$newest" "dist/$asset" --clobber

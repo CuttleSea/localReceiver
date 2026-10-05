@@ -1,4 +1,4 @@
-package ttdrop.server;
+package localreceiver.server;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -12,12 +12,12 @@ import java.util.List;
 import java.util.concurrent.Executors;
 
 /**
- * The ttDrop HTTP server: PWA host, file host, and receiver in one.
+ * The localReceiver HTTP server: PWA host, file host, and receiver in one.
  *
  * <p>Serves the PWA from resources embedded in the jar (never from disk)
  * and the file area from the working directory the jar was started in.
  */
-public final class TtDropServer {
+public final class LocalReceiverServer {
     private final Path fileRoot;
     private HttpServer http;
     private boolean https;
@@ -25,9 +25,9 @@ public final class TtDropServer {
     private volatile boolean dirBrowseEnabled;
     /** Session-per-device pairing; default ON, toggleable while running. */
     private volatile boolean pairingRequired = true;
-    private final Devices devices = new Devices(ttdrop.Config.dir());
+    private final Devices devices = new Devices(localreceiver.Config.dir());
 
-    public TtDropServer(Path fileRoot) {
+    public LocalReceiverServer(Path fileRoot) {
         this.fileRoot = fileRoot.toAbsolutePath().normalize();
     }
 
@@ -59,7 +59,7 @@ public final class TtDropServer {
         if (useHttps) {
             var server = com.sun.net.httpserver.HttpsServer.create(new InetSocketAddress(port), 0);
             server.setHttpsConfigurator(new com.sun.net.httpserver.HttpsConfigurator(
-                    TlsSupport.sslContext(ttdrop.Config.dir())));
+                    TlsSupport.sslContext(localreceiver.Config.dir())));
             http = server;
         } else {
             http = HttpServer.create(new InetSocketAddress(port), 0);
@@ -77,9 +77,9 @@ public final class TtDropServer {
         http.createContext("/api/session", new PairHandler(devices, fileRoot,
                 this::isPairingRequired, this::isDirBrowseEnabled, this::scheme));
         http.createContext("/qr.png", new QrPngHandler(this::scheme));
-        http.createContext("/ca.crt", new CaCertHandler(TlsSupport.caCertificate(ttdrop.Config.dir())));
+        http.createContext("/ca.crt", new CaCertHandler(TlsSupport.caCertificate(localreceiver.Config.dir())));
         http.createContext(CaCertHandler.FINGERPRINT_PATH,
-                new CaCertHandler(TlsSupport.caCertificate(ttdrop.Config.dir())));
+                new CaCertHandler(TlsSupport.caCertificate(localreceiver.Config.dir())));
         http.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         http.start();
     }

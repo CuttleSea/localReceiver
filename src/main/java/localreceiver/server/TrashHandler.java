@@ -1,4 +1,4 @@
-package ttdrop.server;
+package localreceiver.server;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -13,7 +13,7 @@ import java.util.Properties;
 
 /**
  * The recycle bin. Deleting via {@code /api/files/delete} moves the
- * entry into {@code <fileRoot>/.ttdrop-trash/<id>/item/<name>} with a
+ * entry into {@code <fileRoot>/.localreceiver-trash/<id>/item/<name>} with a
  * sidecar {@code meta.properties} (original path relative to the file
  * root, deleting device, timestamp) — nothing is destroyed until
  * purged. Items are visible only to the device that deleted them.
@@ -29,7 +29,7 @@ import java.util.Properties;
  * </ul>
  */
 public final class TrashHandler implements HttpHandler {
-    static final String DIR = ".ttdrop-trash";
+    static final String DIR = ".localreceiver-trash";
 
     private final Path fileRoot;
     private final java.util.function.Function<HttpExchange, Devices.Device> auth;

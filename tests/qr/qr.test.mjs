@@ -1,7 +1,7 @@
 /* Verifies the pure-JDK QR encoder against an independent decoder
  * (jsqr): CLI round-trips spanning versions 1-5, then the live
  * /qr.png endpoint of a freshly started server. Run `npm install`
- * in this directory first. Needs dist/ttdrop.jar built. */
+ * in this directory first. Needs dist/localreceiver.jar built. */
 import jsQR from "jsqr";
 import { PNG } from "pngjs";
 import { execFileSync, spawn } from "node:child_process";
@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const jar = process.env.TTDROP_JAR || join(repoRoot, "dist", "ttdrop.jar");
+const jar = process.env.LOCALRECEIVER_JAR || join(repoRoot, "dist", "localreceiver.jar");
 const pixiJava = join(repoRoot, ".pixi", "envs", "default", "bin", "java");
 const java = process.env.JAVA || (existsSync(pixiJava) ? pixiJava : "java");
 
@@ -41,9 +41,9 @@ const samples = [
   "0123456789012345678901234567890123456789",
   "This is a longer test payload to push into version four or five territory, ok!",
 ];
-const out = join(tmpdir(), `ttdrop-qr-${process.pid}.png`);
+const out = join(tmpdir(), `localreceiver-qr-${process.pid}.png`);
 for (const text of samples) {
-  execFileSync(java, ["-cp", jar, "ttdrop.util.QrCode", text, out], { stdio: "ignore" });
+  execFileSync(java, ["-cp", jar, "localreceiver.util.QrCode", text, out], { stdio: "ignore" });
   check(`roundtrip ${text.length}B`, decodePng(readFileSync(out)), text);
 }
 rmSync(out, { force: true });

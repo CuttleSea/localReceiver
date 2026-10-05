@@ -169,7 +169,7 @@ row.status.className = "muted";
 row.progress.remove();
 row.cancel.remove();
 fetch(`/api/upload/abort?key=${key}`, { method: "POST" }).catch(() => {});
-removeStaging("ttdrop-outgoing", key);
+removeStaging("localreceiver-outgoing", key);
 transfers.delete(key);
 });
 sendList.append(li);
@@ -358,7 +358,7 @@ row.status.textContent = "cancelled";
 row.status.className = "muted";
 row.progress.remove();
 row.cancel.remove();
-removeStaging("ttdrop-incoming", key);
+removeStaging("localreceiver-incoming", key);
 downloads.delete(key);
 });
 receiveList.append(li);
@@ -367,7 +367,7 @@ downloads.set(key, row);
 
 async function deliverDownload(key, name) {
 const root = await navigator.storage.getDirectory();
-const dir = await root.getDirectoryHandle("ttdrop-incoming");
+const dir = await root.getDirectoryHandle("localreceiver-incoming");
 const file = await (await dir.getFileHandle(`${key}.bin`)).getFile();
 const url = URL.createObjectURL(file);
 const a = document.createElement("a");
@@ -435,7 +435,7 @@ chunkSize: CHUNK_SIZE, concurrency: CONCURRENCY,
 async function resumePending() {
 if (!opfsAvailable()) return;
 const root = await navigator.storage.getDirectory();
-for (const [dirName, isUpload] of [["ttdrop-outgoing", true], ["ttdrop-incoming", false]]) {
+for (const [dirName, isUpload] of [["localreceiver-outgoing", true], ["localreceiver-incoming", false]]) {
 try {
 const dir = await root.getDirectoryHandle(dirName);
 for await (const [entryName, handle] of dir.entries()) {
@@ -544,11 +544,11 @@ return `${n} ${unit}${n === 1 ? "" : "s"} ago`;
 
 const viewSelect = document.getElementById("view-select");
 const newFolderButton = document.getElementById("new-folder");
-let viewMode = localStorage.getItem("ttdrop-view") || "details";
+let viewMode = localStorage.getItem("localreceiver-view") || "details";
 viewSelect.value = viewMode;
 viewSelect.addEventListener("change", () => {
 viewMode = viewSelect.value;
-localStorage.setItem("ttdrop-view", viewMode);
+localStorage.setItem("localreceiver-view", viewMode);
 loadDir(currentDir).catch(showOffline);
 });
 newFolderButton.addEventListener("click", async () => {

@@ -1,4 +1,4 @@
-package ttdrop.server;
+package localreceiver.server;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -8,9 +8,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * {@code GET /ca.crt} — the per-user ttDrop CA certificate (PEM) — and
+ * {@code GET /ca.crt} — the per-user localReceiver CA certificate (PEM) — and
  * {@code GET /ca-fingerprint}, its SHA-256 fingerprint as text.
- * Installing the certificate once on a device makes every ttDrop HTTPS
+ * Installing the certificate once on a device makes every localReceiver HTTPS
  * session trusted, unlocking service workers and PWA install. Serving
  * it is safe: it contains only the public half.
  *
@@ -60,7 +60,7 @@ public final class CaCertHandler implements HttpHandler {
             }
             byte[] body = Files.readAllBytes(caCert);
             ex.getResponseHeaders().set("Content-Type", "application/x-x509-ca-cert");
-            ex.getResponseHeaders().set("Content-Disposition", "attachment; filename=ttdrop-ca.crt");
+            ex.getResponseHeaders().set("Content-Disposition", "attachment; filename=localreceiver-ca.crt");
             if (fingerprint != null) {
                 ex.getResponseHeaders().set("X-CA-Fingerprint-SHA256", fingerprint);
             }

@@ -1,13 +1,13 @@
 [workspace]
 authors = ["SotongDJ <sotong0221@gmail.com>"]
 channels = ["conda-forge"]
-name = "ttDrop"
+name = "localReceiver"
 platforms = ["linux-64", "win-64", "osx-64", "osx-arm64"]
-version = "0.24.0"
+version = "1.0.0"
 
 [tasks]
-build = { cmd = "mkdir -p build/classes dist && javac -d build/classes -sourcepath src/main/java src/main/java/ttdrop/Main.java && jar --create --file dist/ttdrop.jar --main-class ttdrop.Main -C build/classes . -C src/main/resources ." }
-run = { cmd = "java -jar dist/ttdrop.jar", depends-on = ["build"] }
+build = { cmd = "mkdir -p build/classes dist && javac -d build/classes -sourcepath src/main/java src/main/java/localreceiver/Main.java && jar --create --file dist/localreceiver.jar --main-class localreceiver.Main -C build/classes . -C src/main/resources ." }
+run = { cmd = "java -jar dist/localreceiver.jar", depends-on = ["build"] }
 clean = "rm -rf build dist"
 
 [dependencies]

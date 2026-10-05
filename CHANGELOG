@@ -1,4 +1,4 @@
-# ttDrop Changelog
+# localReceiver Changelog
 
 This file is the changelog and the single source of truth for GitHub
 release notes: `.github/workflows/release.yml` parses each `## vX.Y.Z`
@@ -7,6 +7,24 @@ notes. Batches add bullets under "Unreleased"; cutting a release renames
 that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
 
 ## Unreleased
+
+## v1.0.0 — renamed to localReceiver (2026-10-05)
+
+- The project is renamed from ttDrop to localReceiver everywhere: app
+  and window titles, web pages, the Java package (`localreceiver`), the
+  server class (`LocalReceiverServer`), the jar (`dist/localreceiver.jar`,
+  release assets `localreceiver_v{x}r{y}n{z}.jar`) and the downloaded CA
+  file (`localreceiver-ca.crt`).
+- Breaking: settings, paired devices and the CA now live in
+  `~/.config/localreceiver/`; environment variables are renamed to
+  `LOCALRECEIVER_CONFIG_DIR`, `LOCALRECEIVER_SCHEME`, etc.; the session
+  cookie is `localreceiver`; hidden folders are `.localreceiver-part/`
+  and `.localreceiver-trash/`. To keep existing pairings and device
+  trust, move `~/.config/ttdrop/` to `~/.config/localreceiver/` before
+  the first start (otherwise a new CA is generated and devices must
+  re-install it and pair again). Leftover `.ttdrop-part/` and
+  `.ttdrop-trash/` folders in a shared folder are no longer hidden;
+  delete them or rename them to the new names.
 
 ## v0.24.0 — hardened TLS and pairing trust model (2026-09-11)
 
@@ -75,7 +93,7 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
   mp3, m4a, wav, ogg, flac) joined the inline-view whitelist so
   thumbnails and direct viewing work.
 - Deleting no longer destroys anything: items move to a recycle bin
-  (`.ttdrop-trash/`, hidden everywhere) with Restore (original
+  (`.localreceiver-trash/`, hidden everywhere) with Restore (original
   location, "name (n)" on conflict) and Remove-forever, per device —
   devices only ever see their own deleted items. New `/api/trash`
   endpoints; client paths can never name the staging or trash areas.
@@ -124,7 +142,7 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
   with the system Dialog font, for Latin and CJK alike.
 - Linux HiDPI: on GNOME desktops with fractional scaling or Large
   Text, Java only honours integer GDK_SCALE and the window rendered
-  tiny. ttDrop now reads the GNOME scaling settings at startup and
+  tiny. localReceiver now reads the GNOME scaling settings at startup and
   sets `sun.java2d.uiScale` automatically (before AWT loads), never
   overriding an explicit `-Dsun.java2d.uiScale=...` or GDK_SCALE.
   Manual override examples are documented in the README.
@@ -135,11 +153,11 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
   back to the system font instead of the embedded Noto Sans TC.
   Font.createFont(InputStream) spools through the machine's temp
   directory and can fail quietly; the font is now extracted once to
-  `~/.config/ttdrop/NotoSansTC-Regular.otf` and loaded from there,
+  `~/.config/localreceiver/NotoSansTC-Regular.otf` and loaded from there,
   with the stream method and finally the system font as fallbacks —
   and every fallback prints a console warning instead of being
   silent. A loaded font is also sanity-checked for CJK coverage.
-- Diagnosable theming: startup prints `ttDrop UI font: <family>`, and
+- Diagnosable theming: startup prints `localReceiver UI font: <family>`, and
   hovering the Stopped/Running status label shows the same — if it
   does not say Noto Sans TC, the console says why.
 - L&F test now asserts the embedded family on every component font
@@ -187,8 +205,8 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
   enter a folder, Up, or type a path); the per-device picker is
   confined to the shared folder, which itself means "everything".
 - Release assets are now versioned: the jar on the GitHub releases
-  page is named `ttdrop_v{x}r{y}n{z}.jar` for version v{x}.{y}.{z}
-  (e.g. `ttdrop_v0r17n0.jar`), so downloads are never confused with
+  page is named `localreceiver_v{x}r{y}n{z}.jar` for version v{x}.{y}.{z}
+  (e.g. `localreceiver_v0r17n0.jar`), so downloads are never confused with
   an older copy. The shared folder remains the directory the jar is
   placed in and run from, served at `/files/`.
 - L&F test now renders the folder picker headlessly (24 checks);
@@ -217,8 +235,8 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
   everyone-sees-everything behavior.
 - Upload staging is per device, so identical transfer keys from
   different devices cannot collide or interfere.
-- The window title now shows the version (ttDrop vX.Y.Z) so it is
-  obvious which jar is running; `TTDROP_CONFIG_DIR` overrides the
+- The window title now shows the version (localReceiver vX.Y.Z) so it is
+  obvious which jar is running; `LOCALRECEIVER_CONFIG_DIR` overrides the
   config directory.
 - New `pairing` browser test (15 checks: 401 posture, QR pairing,
   isolation, scoped uploads, code expiry/reissue); the full suite is
@@ -237,7 +255,7 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
   (pill buttons, tonal surfaces). Dark mode follows the OS
   (reg/defaults/gsettings probes, each optional and bounded, falling
   back to light), and on Windows the OS accent colour seeds the
-  palette; the ttDrop brand blue is the fallback seed everywhere.
+  palette; the localReceiver brand blue is the fallback seed everywhere.
 - The GUI's UI font is an embedded Noto Sans TC Regular (SIL OFL,
   subset OTF, licence shipped alongside): full Traditional Chinese
   plus Latin coverage on every OS with no fallback boxes. This grows
@@ -411,17 +429,17 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
   program, the GUI offers an OS-assigned free port and headless mode
   falls back to one automatically.
 - HTTPS serving, on by default: the first HTTPS run generates a
-  reusable per-user Certificate Authority (`~/.config/ttdrop/ca.p12`,
+  reusable per-user Certificate Authority (`~/.config/localreceiver/ca.p12`,
   exported as PEM `ca.crt`) with the JDK's keytool, then issues the
   server certificate from it (SANs for localhost and the machine's LAN
   IPs, ≤825-day validity). Installing the CA certificate once on a
   device — served at `/ca.crt`, linked from the PWA footer — makes
-  every ttDrop session trusted, present and future, unlocking service
+  every localReceiver session trusted, present and future, unlocking service
   workers and PWA install; deleting `keystore.p12` re-issues the server
   certificate under the same CA. GUI checkbox and `--https`/`--http`
   flags; the choice persists in config. URLs and QR codes follow the
   active scheme. Browser test suite can run over TLS via
-  `TTDROP_SCHEME=https`.
+  `LOCALRECEIVER_SCHEME=https`.
 
 ## v0.2.1 — resumable downloads and config persistence (2026-08-04)
 
@@ -435,15 +453,15 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
   save; staging cleanup is deferred to the next page load because the
   save streams lazily from OPFS.
 - Plain link-navigation fallback where OPFS is unavailable.
-- New `ttdrop.Config`: settings persisted at
-  `~/.config/ttdrop/config.properties` (last used port, saved when the
+- New `localreceiver.Config`: settings persisted at
+  `~/.config/localreceiver/config.properties` (last used port, saved when the
   GUI starts the server, loaded as the startup default).
 
 ## v0.2.0 — chunked resumable upload engine (2026-08-04)
 
 - New upload API under `/api/upload/`: `init`, `chunk`, `status`,
   `complete`, with metadata via query parameters and raw chunk bodies.
-- On-disk staging in `<fileRoot>/.ttdrop-part/<key>/` (hidden from
+- On-disk staging in `<fileRoot>/.localreceiver-part/<key>/` (hidden from
   listings): atomic chunk writes, exact-size validation, collision-safe
   final assembly, sanitized file names; partial transfers survive
   server restarts.
@@ -477,6 +495,6 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
 - Toolchain managed by pixi: OpenJDK 25 from conda-forge, lockfile
   solved for linux-64, win-64, osx-64, and osx-arm64; `pixi.toml` and
   `pixi.lock` are git-tracked.
-- `build`/`run`/`clean` tasks producing `dist/ttdrop.jar` with the
+- `build`/`run`/`clean` tasks producing `dist/localreceiver.jar` with the
   embedded webroot.
 - Initial source layout with placeholder entry point and webroot page.

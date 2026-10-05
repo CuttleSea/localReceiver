@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 const payload = randomBytes(12 * 1024 * 1024); // 3 chunks at 4 MiB
-const srcPath = join(tmpdir(), "ttdrop-test-resume.dat");
+const srcPath = join(tmpdir(), "localreceiver-test-resume.dat");
 writeFileSync(srcPath, payload);
 const srcHash = createHash("sha256").update(payload).digest("hex");
 
@@ -50,7 +50,7 @@ console.log("hash match:", srcHash === destHash);
 const staged = await page.evaluate(async () => {
   const root = await navigator.storage.getDirectory();
   try {
-    const dir = await root.getDirectoryHandle("ttdrop-outgoing");
+    const dir = await root.getDirectoryHandle("localreceiver-outgoing");
     const names = [];
     for await (const [n] of dir.entries()) names.push(n);
     return names;

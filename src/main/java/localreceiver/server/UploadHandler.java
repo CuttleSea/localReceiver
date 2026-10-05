@@ -1,4 +1,4 @@
-package ttdrop.server;
+package localreceiver.server;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -36,13 +36,13 @@ import java.util.regex.Pattern;
  *       staging; returns {@code {"name":..}}.</li>
  * </ul>
  *
- * <p>Staging lives in {@code <fileRoot>/.ttdrop-part/<key>/} so partial
+ * <p>Staging lives in {@code <fileRoot>/.localreceiver-part/<key>/} so partial
  * transfers survive server restarts and stay on the same filesystem as
  * the final destination (atomic finish). The key is a client-derived
  * stable identifier, restricted to lowercase hex.
  */
 public final class UploadHandler implements HttpHandler {
-    static final String PART_DIR = ".ttdrop-part";
+    static final String PART_DIR = ".localreceiver-part";
     private static final Pattern KEY = Pattern.compile("[a-f0-9]{8,64}");
     private static final long MAX_CHUNK_SIZE = 64L * 1024 * 1024;
 

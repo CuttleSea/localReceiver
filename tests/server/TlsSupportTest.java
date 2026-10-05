@@ -5,21 +5,21 @@ import java.security.KeyStore;
 import java.security.MessageDigest;
 import java.util.Base64;
 
-import ttdrop.server.TlsSupport;
+import localreceiver.server.TlsSupport;
 
 /**
  * Headless TLS material test: the per-installation keystore password
  * (random, owner-only, migrated off the old fixed literal without
  * disturbing the CA) and the CA fingerprint published for out-of-band
  * verification. Run:
- * java -cp dist/ttdrop.jar tests/server/TlsSupportTest.java
+ * java -cp dist/localreceiver.jar tests/server/TlsSupportTest.java
  */
 public final class TlsSupportTest {
     static int pass = 0;
     static int fail = 0;
 
     public static void main(String[] args) throws Exception {
-        Path dir = Files.createTempDirectory("ttdrop-tls");
+        Path dir = Files.createTempDirectory("localreceiver-tls");
         TlsSupport.sslContext(dir);
         Path caStore = dir.resolve("ca.p12");
         Path keystore = dir.resolve("keystore.p12");
@@ -71,7 +71,7 @@ public final class TlsSupportTest {
 
         // An unreadable CA store must fail loudly rather than quietly
         // minting a new CA under the devices that trusted the old one.
-        Path broken = Files.createTempDirectory("ttdrop-tls-broken");
+        Path broken = Files.createTempDirectory("localreceiver-tls-broken");
         Files.writeString(broken.resolve("ca.p12"), "not a keystore");
         Files.writeString(broken.resolve("ca.crt"), "not a certificate");
         boolean threw = false;

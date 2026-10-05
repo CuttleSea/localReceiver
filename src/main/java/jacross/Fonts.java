@@ -44,7 +44,7 @@ final class Fonts {
             return font.deriveFont(size);
         }
         if (font != null) {
-            System.err.println("ttDrop: embedded font loaded but lacks CJK glyphs;"
+            System.err.println("localReceiver: embedded font loaded but lacks CJK glyphs;"
                     + " falling back to the system font");
         }
         return new Font(Font.DIALOG, Font.PLAIN, Math.round(size));
@@ -52,7 +52,7 @@ final class Fonts {
 
     private static Font fromExtractedFile() {
         try {
-            Path dir = ttdrop.Config.dir();
+            Path dir = localreceiver.Config.dir();
             Files.createDirectories(dir);
             // v0.19 extracted a CFF-flavoured OTF here; remove it.
             Files.deleteIfExists(dir.resolve("NotoSansTC-Regular.otf"));
@@ -60,7 +60,7 @@ final class Fonts {
             long resourceSize;
             try (InputStream in = Fonts.class.getResourceAsStream(RESOURCE)) {
                 if (in == null) {
-                    System.err.println("ttDrop: embedded font resource missing from the jar");
+                    System.err.println("localReceiver: embedded font resource missing from the jar");
                     return null;
                 }
                 if (!Files.exists(file) || Files.size(file) == 0) {
@@ -73,7 +73,7 @@ final class Fonts {
             }
             return Font.createFont(Font.TRUETYPE_FONT, file.toFile());
         } catch (Exception e) {
-            System.err.println("ttDrop: could not load the UI font from the config dir: " + e);
+            System.err.println("localReceiver: could not load the UI font from the config dir: " + e);
             return null;
         }
     }
@@ -85,7 +85,7 @@ final class Fonts {
             }
             return Font.createFont(Font.TRUETYPE_FONT, in);
         } catch (Exception e) {
-            System.err.println("ttDrop: could not load the UI font from the jar: " + e);
+            System.err.println("localReceiver: could not load the UI font from the jar: " + e);
             return null;
         }
     }

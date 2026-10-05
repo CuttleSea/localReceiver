@@ -1,4 +1,4 @@
-package ttdrop.server;
+package localreceiver.server;
 
 import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * The device registry: pairing codes, device session tokens, and each
  * device's host-granted permissions. Persisted at
- * {@code ~/.config/ttdrop/devices.properties}; pairing codes are
+ * {@code ~/.config/localreceiver/devices.properties}; pairing codes are
  * in-memory only (one-time, 10-minute expiry).
  *
  * <p>Session model: a paired device holds a random token in an
@@ -108,7 +108,7 @@ public final class Devices {
     /** The virtual device used when pairing is off: full access. */
     public static final Device OPEN = new Device("open", "open", "", true, true, true);
 
-    private static final String COOKIE = "ttdrop";
+    private static final String COOKIE = "localreceiver";
     private static final long CODE_TTL_MS = 10 * 60 * 1000;
     private static final char[] CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789".toCharArray();
 
@@ -379,7 +379,7 @@ public final class Devices {
         try {
             Files.createDirectories(file.getParent());
             try (OutputStream out = Files.newOutputStream(file)) {
-                p.store(out, "ttDrop paired devices");
+                p.store(out, "localReceiver paired devices");
             }
         } catch (IOException ignored) {
             // devices survive in memory for this run

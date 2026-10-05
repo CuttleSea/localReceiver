@@ -1,4 +1,4 @@
-package ttdrop;
+package localreceiver;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -8,15 +8,15 @@ import java.nio.file.Path;
 import java.util.Properties;
 
 /**
- * Persistent settings, stored at {@code ~/.config/ttdrop/config.properties}
+ * Persistent settings, stored at {@code ~/.config/localreceiver/config.properties}
  * on every platform (resolved via {@code user.home}). The working directory
  * is exclusively the file area — configuration never lives there.
  */
 public final class Config {
-    // TTDROP_CONFIG_DIR overrides the location (tests, portable setups).
-    private static final Path DIR = System.getenv("TTDROP_CONFIG_DIR") != null
-            ? Path.of(System.getenv("TTDROP_CONFIG_DIR"))
-            : Path.of(System.getProperty("user.home"), ".config", "ttdrop");
+    // LOCALRECEIVER_CONFIG_DIR overrides the location (tests, portable setups).
+    private static final Path DIR = System.getenv("LOCALRECEIVER_CONFIG_DIR") != null
+            ? Path.of(System.getenv("LOCALRECEIVER_CONFIG_DIR"))
+            : Path.of(System.getProperty("user.home"), ".config", "localreceiver");
     private static final Path FILE = DIR.resolve("config.properties");
 
     /** The per-user config directory (also holds the TLS keystore). */
@@ -45,7 +45,7 @@ public final class Config {
         try {
             Files.createDirectories(DIR);
             try (OutputStream out = Files.newOutputStream(FILE)) {
-                props.store(out, "ttDrop settings");
+                props.store(out, "localReceiver settings");
             }
         } catch (IOException ignored) {
             // settings are a convenience; failing to persist them is not fatal

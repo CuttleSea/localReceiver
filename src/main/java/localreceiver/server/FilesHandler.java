@@ -1,4 +1,4 @@
-package ttdrop.server;
+package localreceiver.server;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -82,7 +82,7 @@ public final class FilesHandler implements HttpHandler {
             // subtree — an unpaired requester has no subtree at all.
             Devices.Device device = auth.apply(ex);
             if (device == null) {
-                sendPlain(ex, 401, "Not paired. Open the ttDrop page and enter a pairing code.");
+                sendPlain(ex, 401, "Not paired. Open the localReceiver page and enter a pairing code.");
                 return;
             }
             if (!device.read()) {
@@ -198,7 +198,7 @@ public final class FilesHandler implements HttpHandler {
         // palette as the PWA.
         StringBuilder html = new StringBuilder("<!doctype html><meta charset=\"utf-8\">"
                 + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-                + "<title>ttDrop — /" + escapeHtml(rel.toString().replace('\\', '/')) + "</title>"
+                + "<title>localReceiver — /" + escapeHtml(rel.toString().replace('\\', '/')) + "</title>"
                 + "<style>"
                 + ":root{--bg:#fff;--fg:#1f2937;--muted:#6b7280;--accent:#2563eb;"
                 + "--surface:#f3f4f6;--border:#d1d5db;--folder:#54aeff}"
@@ -217,7 +217,7 @@ public final class FilesHandler implements HttpHandler {
                 + "small{color:var(--muted);white-space:nowrap}"
                 + "</style>");
 
-        // Breadcrumbs: ttDrop root, then each ancestor directory.
+        // Breadcrumbs: localReceiver root, then each ancestor directory.
         html.append("<p><a href=\"/files/\">files</a>");
         StringBuilder crumb = new StringBuilder("/files/");
         for (Path segment : rel) {

@@ -1,14 +1,14 @@
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import ttdrop.server.Devices;
+import localreceiver.server.Devices;
 
 /**
  * Headless registry test: name validation at pairing (checked before
  * the code is consumed), uniqueness, and rename — including that a
  * rename never touches the device's folder, so devices sharing one
  * browsing root survive it. Run:
- * java -cp dist/ttdrop.jar tests/server/DevicesTest.java
+ * java -cp dist/localreceiver.jar tests/server/DevicesTest.java
  */
 public final class DevicesTest {
     static int pass = 0;
