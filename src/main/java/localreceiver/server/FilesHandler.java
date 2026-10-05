@@ -29,7 +29,8 @@ public final class FilesHandler implements HttpHandler {
      * attachment, and inline responses additionally carry
      * {@code Content-Security-Policy: sandbox} so even scriptable
      * formats (SVG) cannot run code. Text-like formats are served as
-     * text/plain deliberately.
+     * text/plain deliberately. HTML is rendered, but only under
+     * {@link #HTML_CSP}: no scripts, no forms, no loads off this server.
      */
     private static final java.util.Map<String, String> VIEWABLE = java.util.Map.ofEntries(
             java.util.Map.entry("png", "image/png"),
@@ -52,12 +53,26 @@ public final class FilesHandler implements HttpHandler {
             java.util.Map.entry("wav", "audio/wav"),
             java.util.Map.entry("ogg", "audio/ogg"),
             java.util.Map.entry("flac", "audio/flac"),
+            java.util.Map.entry("html", "text/html; charset=utf-8"),
+            java.util.Map.entry("htm", "text/html; charset=utf-8"),
             java.util.Map.entry("txt", "text/plain; charset=utf-8"),
             java.util.Map.entry("md", "text/plain; charset=utf-8"),
             java.util.Map.entry("log", "text/plain; charset=utf-8"),
             java.util.Map.entry("csv", "text/plain; charset=utf-8"),
             java.util.Map.entry("json", "text/plain; charset=utf-8"),
             java.util.Map.entry("xml", "text/plain; charset=utf-8"));
+
+    /**
+     * Policy for inline HTML. {@code sandbox} without allow-scripts or
+     * allow-same-origin gives the page an opaque origin that can run no
+     * script, submit no form and open no popup, so it cannot reach the
+     * app's cookies, storage or API. On top of that nothing may load
+     * except this server's own images, styles, fonts and media, so a
+     * page cannot beacon to another host either.
+     */
+    static final String HTML_CSP = "sandbox; default-src 'none'; img-src 'self' data:;"
+            + " style-src 'self' 'unsafe-inline'; font-src 'self' data:; media-src 'self';"
+            + " form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
 
     private final Path fileRoot;
     private final SpecialPaths special;
@@ -432,7 +447,8 @@ public final class FilesHandler implements HttpHandler {
         if (viewableType != null) {
             ex.getResponseHeaders().set("Content-Type", viewableType);
             ex.getResponseHeaders().set("Content-Disposition", "inline; filename*=UTF-8''" + encoded);
-            ex.getResponseHeaders().set("Content-Security-Policy", "sandbox; frame-ancestors 'none'");
+            ex.getResponseHeaders().set("Content-Security-Policy", viewableType.startsWith("text/html")
+                    ? HTML_CSP : "sandbox; frame-ancestors 'none'");
             ex.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
         } else {
             ex.getResponseHeaders().set("Content-Type", "application/octet-stream");

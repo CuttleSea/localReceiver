@@ -299,12 +299,15 @@ is a core design requirement, in both directions (upload and download):
   and single-range `Range: bytes=a-b` GETs (206 + `Content-Range`,
   416 on bad ranges) with an ETag of `"size-mtime"`. A whitelist of
   extensions (`FilesHandler.VIEWABLE`: images, pdf, common video/audio
-  containers, text-likes as text/plain) is served `inline` with
-  `Content-Security-Policy:
-  sandbox` + `nosniff` so direct `/files/` URLs display in the
-  browser; every other type — HTML deliberately included — is an
-  `attachment` download. Never inline-render non-whitelisted uploads:
-  that would be stored XSS on the app origin. The PWA's own file list
+  containers, text-likes as text/plain, and `.html`/`.htm`) is served
+  `inline` with `Content-Security-Policy: sandbox` + `nosniff` so
+  direct `/files/` URLs display in the browser; every other type is an
+  `attachment` download. HTML gets the stricter
+  `FilesHandler.HTML_CSP`: `sandbox` without `allow-scripts` or
+  `allow-same-origin` (opaque origin, no script, no forms, no popups)
+  plus `default-src 'none'` with only this server's images, styles,
+  fonts and media allowed. Never weaken that policy or inline-render
+  non-whitelisted uploads: that would be stored XSS on the app origin. The PWA's own file list
   always uses the managed download, never the inline view.
 - **Directory browsing** (implemented, default OFF): a `/files/`
   directory URL normally returns the JSON listing

@@ -90,7 +90,8 @@ dropped connections and page reloads.
   in the optional directory listing pages.
 - **Directory browsing** (off by default): flip the toggle and opening
   a `/files/` URL directly in any browser shows a browsable listing
-  page; whitelisted types (images, PDF, plain text) display inline.
+  page; whitelisted types (images, PDF, plain text, and HTML — sandboxed, with
+  scripts and forms disabled) display inline.
 - **A full file manager in the browser**: create folders, move
   (auto-renaming on conflict), rename, and delete — deletions go to a
   per-device **recycle bin** with restore, never straight to
@@ -223,7 +224,7 @@ localReceiver 由一個小巧的 **Java 伺服器程式**（Windows/macOS/Linux�
   頁面皆採此風格。
 - **目錄瀏覽**（預設關閉）：開啟開關後，直接在任何瀏覽器開啟
   `/files/` 網址即可看到可瀏覽的目錄列表頁面；白名單類型
-  （圖片、PDF、純文字）會直接在瀏覽器中顯示。
+  （圖片、PDF、純文字，以及停用腳本與表單的沙箱化 HTML）會直接在瀏覽器中顯示。
 - **瀏覽器中的完整檔案管理員**：建立資料夾、移動（同名時自動改名）、
   重新命名與刪除——刪除會進入各裝置專屬的**資源回收筒**，可隨時
   還原，絕不直接銷毀。檢視模式從清單、詳細資料（含確切時間戳記）

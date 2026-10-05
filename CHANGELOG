@@ -8,6 +8,16 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
 
 ## Unreleased
 
+## v1.1.1 — view HTML in the browser (2026-10-05)
+
+- Opening a `.html` or `.htm` file at its `/files/` URL now shows the
+  page in the browser instead of downloading it. It is locked down: it
+  runs no scripts, submits no forms, opens no popups, cannot see the
+  app's cookies or storage, and loads nothing from other hosts (only
+  images, styles, fonts and media from this server). Plain text and
+  images keep displaying inline as before. The app's own file list
+  still always downloads.
+
 ## v1.1.0 — security hardening (2026-10-05)
 
 - Folder and file names are now case-insensitive on every platform. A
