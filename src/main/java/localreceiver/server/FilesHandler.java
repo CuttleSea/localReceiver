@@ -60,12 +60,31 @@ public final class FilesHandler implements HttpHandler {
             java.util.Map.entry("xml", "text/plain; charset=utf-8"));
 
     private final Path fileRoot;
+    private final SpecialPaths special;
     private final java.util.function.BooleanSupplier dirBrowse;
     private final java.util.function.Function<HttpExchange, Devices.Device> auth;
 
-    public FilesHandler(Path fileRoot, java.util.function.BooleanSupplier dirBrowse,
+    /**
+     * Chunked downloads: the PWA sends one random {@code X-Transfer-Id}
+     * with every request of a download. Its first request records the
+     * working folder in force, and later requests for the same file
+     * resolve against it, so a host changing the working folder applies
+     * once the download has finished (all bytes served) or sat idle for
+     * {@link #PIN_IDLE_MS}. Permissions are still checked as they are now.
+     */
+    private record Pin(Path root, String path, long size, long served, long seen) {
+    }
+
+    private static final long PIN_IDLE_MS = 10 * 60 * 1000;
+    private static final java.util.regex.Pattern TRANSFER_ID =
+            java.util.regex.Pattern.compile("[0-9a-f]{32}");
+    private final java.util.Map<String, Pin> pins = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public FilesHandler(Path fileRoot, SpecialPaths special,
+            java.util.function.BooleanSupplier dirBrowse,
             java.util.function.Function<HttpExchange, Devices.Device> auth) {
         this.fileRoot = fileRoot;
+        this.special = special;
         this.dirBrowse = dirBrowse;
         this.auth = auth;
     }
@@ -89,18 +108,25 @@ public final class FilesHandler implements HttpHandler {
                 sendPlain(ex, 403, "Reading is not allowed for this device.");
                 return;
             }
-            Path root = device.resolveRoot(fileRoot);
             String raw = ex.getRequestURI().getPath().substring("/files/".length());
             String decoded = URLDecoder.decode(raw, StandardCharsets.UTF_8);
-            Path target = root.resolve(decoded).normalize();
-            if (!target.startsWith(root)) {
-                ex.sendResponseHeaders(403, -1);
+            String pinKey = pinKey(ex, device);
+            Path root = pinnedRoot(pinKey, decoded, device.resolveRoot(fileRoot));
+            SpecialPaths.Where where = special.locate(ex, device, root, decoded);
+            if (where == null) {
+                ex.sendResponseHeaders(404, -1);
+                return;
+            }
+            Path target = where.target();
+            if (!where.safe() && special.forbidden(target, device)) {
+                ex.sendResponseHeaders(404, -1);
                 return;
             }
             // Per-subfolder deny list: the top-level subfolder of the
-            // device's subtree decides.
-            if (!device.canReadSub(Devices.Device.firstSegment(root, target))) {
-                ex.sendResponseHeaders(403, -1);
+            // device's subtree decides (the safe folder has none).
+            if (!where.safe()
+                    && !device.canReadSub(Devices.Device.firstSegment(root, target))) {
+                ex.sendResponseHeaders(404, -1);
                 return;
             }
             if (Files.isDirectory(target)) {
@@ -111,12 +137,15 @@ public final class FilesHandler implements HttpHandler {
                 String accept = ex.getRequestHeaders().getFirst("Accept");
                 if (dirBrowse.getAsBoolean() && device.browse()
                         && accept != null && accept.contains("text/html")) {
-                    sendHtmlListing(ex, device, root, target);
+                    sendHtmlListing(ex, device, where);
                 } else {
-                    sendListing(ex, device, root, target);
+                    sendListing(ex, device, where);
                 }
             } else if (Files.isRegularFile(target)) {
-                sendFile(ex, target, head);
+                long sent = sendFile(ex, target, head);
+                if (pinKey != null) {
+                    servedFromPin(pinKey, decoded, root, Files.size(target), sent);
+                }
             } else {
                 ex.sendResponseHeaders(404, -1);
             }
@@ -132,22 +161,32 @@ public final class FilesHandler implements HttpHandler {
         }
     }
 
-    private void sendListing(HttpExchange ex, Devices.Device device, Path root, Path dir)
+    private void sendListing(HttpExchange ex, Devices.Device device, SpecialPaths.Where where)
             throws IOException {
-        boolean atDeviceRoot = dir.equals(root);
+        Path dir = where.target();
+        boolean atDeviceRoot = dir.equals(where.base()) && !where.safe();
+        boolean withSafe = atDeviceRoot && special.showsSafe(ex, device);
         // fileOps tells the PWA whether to render management buttons:
-        // purely the device's write grant (always-on server-side).
+        // the device's write grant, and over plain HTTP only inside safe.
+        boolean fileOps = device.write() && SpecialPaths.writable(ex, where);
         StringBuilder json = new StringBuilder(
-                "{\"fileOps\":" + device.write() + ",\"entries\":[");
+                "{\"fileOps\":" + fileOps + ",\"entries\":[");
         try (Stream<Path> entries = Files.list(dir)) {
             boolean first = true;
+            if (withSafe) {
+                json.append("{\"name\":").append(quote(SpecialPaths.SAFE))
+                        .append(",\"dir\":true,\"size\":0,\"mtime\":0}");
+                first = false;
+            }
             for (Path p : (Iterable<Path>) entries.sorted()::iterator) {
                 String entryName = p.getFileName().toString();
-                if (entryName.equals(UploadHandler.PART_DIR)
-                        || entryName.equals(TrashHandler.DIR)) {
+                if (!where.safe() && special.forbidden(p, device)) {
                     continue;
                 }
                 if (atDeviceRoot && !device.canReadSub(entryName)) {
+                    continue;
+                }
+                if (withSafe && FolderNames.same(entryName, SpecialPaths.SAFE)) {
                     continue;
                 }
                 if (!first) {
@@ -179,10 +218,15 @@ public final class FilesHandler implements HttpHandler {
      * carries a CSP that forbids everything but inline styles, so a
      * hostile file name can never become script on this origin.
      */
-    private void sendHtmlListing(HttpExchange ex, Devices.Device device, Path root, Path dir)
+    private void sendHtmlListing(HttpExchange ex, Devices.Device device, SpecialPaths.Where where)
             throws IOException {
-        boolean atDeviceRoot = dir.equals(root);
-        Path rel = root.relativize(dir);
+        Path dir = where.target();
+        boolean atDeviceRoot = dir.equals(where.base()) && !where.safe();
+        boolean withSafe = atDeviceRoot && special.showsSafe(ex, device);
+        Path rel = where.base().relativize(dir);
+        if (where.safe()) {
+            rel = Path.of(SpecialPaths.SAFE).resolve(rel);
+        }
         StringBuilder base = new StringBuilder("/files/");
         for (Path segment : rel) {
             String name = segment.toString();
@@ -229,6 +273,10 @@ public final class FilesHandler implements HttpHandler {
             html.append(" / <a href=\"").append(crumb).append("\">").append(escapeHtml(name)).append("</a>");
         }
         html.append("</p><ul>");
+        if (withSafe) {
+            html.append("<li><span class=\"icon dir\">").append(ICON_DIR).append("</span>")
+                    .append("<a href=\"/files/safe/\">safe/</a></li>");
+        }
 
         try (Stream<Path> entries = Files.list(dir)) {
             for (Path p : (Iterable<Path>) entries
@@ -236,8 +284,9 @@ public final class FilesHandler implements HttpHandler {
                             .comparing((Path e) -> !Files.isDirectory(e))
                             .thenComparing(e -> e.getFileName().toString()))::iterator) {
                 String name = p.getFileName().toString();
-                if (name.equals(UploadHandler.PART_DIR) || name.equals(TrashHandler.DIR)
-                        || (atDeviceRoot && !device.canReadSub(name))) {
+                if ((!where.safe() && special.forbidden(p, device))
+                        || (atDeviceRoot && !device.canReadSub(name))
+                        || (withSafe && FolderNames.same(name, SpecialPaths.SAFE))) {
                     continue;
                 }
                 boolean isDir = Files.isDirectory(p);
@@ -259,7 +308,7 @@ public final class FilesHandler implements HttpHandler {
 
         byte[] body = html.toString().getBytes(StandardCharsets.UTF_8);
         ex.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
-        ex.getResponseHeaders().set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
+        ex.getResponseHeaders().set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'");
         ex.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
         boolean head = "HEAD".equals(ex.getRequestMethod());
         ex.sendResponseHeaders(200, head ? -1 : body.length);
@@ -337,7 +386,41 @@ public final class FilesHandler implements HttpHandler {
      * resume. The ETag ({@code "size-mtime"}) lets a resuming client detect
      * that the file changed since its partial download was staged.
      */
-    private void sendFile(HttpExchange ex, Path file, boolean head) throws IOException {
+    /** The pin key for this request, or null without a well-formed transfer id. */
+    private static String pinKey(HttpExchange ex, Devices.Device device) {
+        String id = ex.getRequestHeaders().getFirst("X-Transfer-Id");
+        return id != null && TRANSFER_ID.matcher(id).matches() ? device.id() + "/" + id : null;
+    }
+
+    /** The working folder pinned for this transfer and file, else the current one. */
+    private Path pinnedRoot(String pinKey, String path, Path current) {
+        if (pinKey == null) {
+            return current;
+        }
+        long now = System.currentTimeMillis();
+        pins.values().removeIf(p -> now - p.seen() >= PIN_IDLE_MS);
+        Pin pin = pins.get(pinKey);
+        if (pin == null || !pin.path().equals(path) || !pin.root().startsWith(fileRoot)) {
+            return current;
+        }
+        return pin.root();
+    }
+
+    /** Records bytes served for a pinned transfer; drops the pin once the whole file went out. */
+    private void servedFromPin(String pinKey, String path, Path root, long size, long sent) {
+        long now = System.currentTimeMillis();
+        pins.compute(pinKey, (k, p) -> {
+            if (p != null && !p.path().equals(path)) {
+                return p; // the id is pinned to another file: leave that pin alone
+            }
+            Pin pin = p != null ? p : new Pin(root, path, size, 0, now);
+            long served = pin.served() + sent;
+            return served >= size ? null : new Pin(pin.root(), path, size, served, now);
+        });
+    }
+
+    /** Sends a file and returns how many body bytes went out. */
+    private long sendFile(HttpExchange ex, Path file, boolean head) throws IOException {
         long size = Files.size(file);
         String name = file.getFileName().toString();
         String etag = "\"" + size + "-" + Files.getLastModifiedTime(file).toMillis() + "\"";
@@ -349,7 +432,7 @@ public final class FilesHandler implements HttpHandler {
         if (viewableType != null) {
             ex.getResponseHeaders().set("Content-Type", viewableType);
             ex.getResponseHeaders().set("Content-Disposition", "inline; filename*=UTF-8''" + encoded);
-            ex.getResponseHeaders().set("Content-Security-Policy", "sandbox");
+            ex.getResponseHeaders().set("Content-Security-Policy", "sandbox; frame-ancestors 'none'");
             ex.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
         } else {
             ex.getResponseHeaders().set("Content-Type", "application/octet-stream");
@@ -360,6 +443,12 @@ public final class FilesHandler implements HttpHandler {
         long to = size - 1;
         boolean partial = false;
         String range = ex.getRequestHeaders().getFirst("Range");
+        // If-Range: a range of a file that changed since the client's ETag
+        // would mix two files, so it gets the whole new file instead.
+        String ifRange = ex.getRequestHeaders().getFirst("If-Range");
+        if (ifRange != null && !ifRange.equals(etag)) {
+            range = null;
+        }
         if (range != null && range.startsWith("bytes=") && !range.contains(",")) {
             String spec = range.substring("bytes=".length()).trim();
             int dash = spec.indexOf('-');
@@ -378,7 +467,7 @@ public final class FilesHandler implements HttpHandler {
             if (partial && (from > to || from >= size)) {
                 ex.getResponseHeaders().set("Content-Range", "bytes */" + size);
                 ex.sendResponseHeaders(416, -1);
-                return;
+                return 0;
             }
             to = Math.min(to, size - 1);
         }
@@ -391,7 +480,7 @@ public final class FilesHandler implements HttpHandler {
         if (head) {
             ex.getResponseHeaders().set("Content-Length", String.valueOf(length));
             ex.sendResponseHeaders(code, -1);
-            return;
+            return 0;
         }
         ex.sendResponseHeaders(code, length == 0 ? -1 : length);
         try (var channel = Files.newByteChannel(file); OutputStream out = ex.getResponseBody()) {
@@ -408,6 +497,7 @@ public final class FilesHandler implements HttpHandler {
                 out.write(buf, 0, read);
                 remaining -= read;
             }
+            return length - remaining;
         }
     }
 

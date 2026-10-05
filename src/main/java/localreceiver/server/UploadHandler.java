@@ -36,24 +36,27 @@ import java.util.regex.Pattern;
  *       staging; returns {@code {"name":..}}.</li>
  * </ul>
  *
- * <p>Staging lives in {@code <fileRoot>/.localreceiver-part/<key>/} so partial
- * transfers survive server restarts and stay on the same filesystem as
- * the final destination (atomic finish). The key is a client-derived
- * stable identifier, restricted to lowercase hex.
+ * <p>Staging lives in the device's {@link SpecialPaths#uploadsDir} so
+ * partial transfers survive server restarts; the finished file appears
+ * at its destination with an atomic rename (after a copy when staging is
+ * on another drive). The key is a client-derived stable identifier,
+ * restricted to lowercase hex.
  */
 public final class UploadHandler implements HttpHandler {
-    static final String PART_DIR = ".localreceiver-part";
     private static final Pattern KEY = Pattern.compile("[a-f0-9]{8,64}");
     private static final long MAX_CHUNK_SIZE = 64L * 1024 * 1024;
 
+    private static final String HTTP_READ_ONLY =
+            "the shared folder is read-only over HTTP; use the safe folder";
+
     private final Path fileRoot;
-    private final Path partRoot;
+    private final SpecialPaths special;
     private final java.util.function.Function<HttpExchange, Devices.Device> auth;
 
-    public UploadHandler(Path fileRoot,
+    public UploadHandler(Path fileRoot, SpecialPaths special,
             java.util.function.Function<HttpExchange, Devices.Device> auth) {
         this.fileRoot = fileRoot;
-        this.partRoot = fileRoot.resolve(PART_DIR);
+        this.special = special;
         this.auth = auth;
     }
 
@@ -76,13 +79,13 @@ public final class UploadHandler implements HttpHandler {
                 sendJson(ex, 403, "{\"error\":\"uploads are not allowed for this device\"}");
                 return;
             }
-            // Staging is per device (flat "<deviceId>-<key>" dirs), so
+            // Staging lives in the device's own .uploads folder, so
             // same-keyed transfers from different devices never collide
             // and one device cannot touch another's staging.
-            Path staging = partRoot.resolve(device.id() + "-" + key);
+            Path staging = special.uploadsDir(device).resolve(key);
             Path deviceRoot = device.resolveRoot(fileRoot);
             switch (action) {
-                case "init" -> init(ex, key, staging, device, q);
+                case "init" -> init(ex, key, staging, device, deviceRoot, q);
                 case "chunk" -> chunk(ex, staging, q);
                 case "status" -> status(ex, key, staging);
                 case "complete" -> complete(ex, staging, device, deviceRoot);
@@ -93,7 +96,7 @@ public final class UploadHandler implements HttpHandler {
     }
 
     private void init(HttpExchange ex, String key, Path staging, Devices.Device device,
-            Map<String, String> q) throws IOException {
+            Path deviceRoot, Map<String, String> q) throws IOException {
         if (!"POST".equals(ex.getRequestMethod())) {
             ex.sendResponseHeaders(405, -1);
             return;
@@ -114,8 +117,25 @@ public final class UploadHandler implements HttpHandler {
             sendJson(ex, 400, "{\"error\":\"bad parameters\"}");
             return;
         }
-        if (!device.canWriteSub(topFolder(name))) {
-            sendJson(ex, 403, "{\"error\":\"writing to this folder is not allowed\"}");
+        // Over plain HTTP the shared folder is read-only: uploads land in
+        // the device's safe folder (none in open mode).
+        if (SpecialPaths.plainHttp(ex)) {
+            if (special.safeDir(device) == null) {
+                sendJson(ex, 403, "{\"error\":\"" + HTTP_READ_ONLY + "\"}");
+                return;
+            }
+            if (!FolderNames.same(name.split("/", 2)[0], SpecialPaths.SAFE)) {
+                name = SpecialPaths.SAFE + "/" + name;
+            }
+        }
+        SpecialPaths.Where where = special.locate(ex, device, deviceRoot, name);
+        if (where == null || where.target().equals(where.base())) {
+            sendJson(ex, 400, "{\"error\":\"bad parameters\"}");
+            return;
+        }
+        if (!where.safe() && (!device.canWriteSub(Devices.Device.firstSegment(deviceRoot, where.target()))
+                || offLimits(device, deviceRoot, name))) {
+            sendJson(ex, 404, "{\"error\":\"folder not found\"}");
             return;
         }
         // Optional original modification time (millis): re-applied to
@@ -137,9 +157,16 @@ public final class UploadHandler implements HttpHandler {
             if (!String.valueOf(size).equals(meta.getProperty("size"))
                     || !String.valueOf(chunkSize).equals(meta.getProperty("chunkSize"))) {
                 deleteRecursively(staging);
+                meta.clear();
             }
         }
         Files.createDirectories(staging);
+        // The working folder in force when the transfer started: a change
+        // by the host applies once this upload has finished (a resumed
+        // init keeps the original).
+        if (meta.getProperty("root") == null) {
+            meta.setProperty("root", deviceRoot.toString());
+        }
         meta.setProperty("name", name);
         meta.setProperty("size", String.valueOf(size));
         meta.setProperty("chunkSize", String.valueOf(chunkSize));
@@ -238,10 +265,19 @@ public final class UploadHandler implements HttpHandler {
             sendJson(ex, 404, "{\"error\":\"unknown transfer\"}");
             return;
         }
-        if (!device.canWriteSub(topFolder(meta.getProperty("name")))) {
-            sendJson(ex, 403, "{\"error\":\"writing to this folder is not allowed\"}");
+        String name = meta.getProperty("name");
+        Path root = startRoot(meta, deviceRoot);
+        SpecialPaths.Where where = special.locate(ex, device, root, name);
+        if (where == null || where.target().equals(where.base())
+                || !SpecialPaths.writable(ex, where)
+                || (!where.safe() && (!device.canWriteSub(Devices.Device.firstSegment(root, where.target()))
+                        || offLimits(device, root, name)))) {
+            sendJson(ex, 404, "{\"error\":\"folder not found\"}");
             return;
         }
+        // Relative to the base it lands in: the device root, or the safe folder.
+        Path base = where.base();
+        String relName = where.safe() ? name.split("/", 2)[1] : name;
         long size = Long.parseLong(meta.getProperty("size"));
         long chunkSize = Long.parseLong(meta.getProperty("chunkSize"));
         int chunkCount = chunkCount(size, chunkSize);
@@ -251,7 +287,7 @@ public final class UploadHandler implements HttpHandler {
                 return;
             }
         }
-        Path target = uniqueTarget(deviceRoot, meta.getProperty("name"));
+        Path target = uniqueTarget(base, relName);
         Path assembling = staging.resolve("assembling");
         try (OutputStream out = Files.newOutputStream(assembling)) {
             for (int i = 0; i < chunkCount; i++) {
@@ -265,7 +301,16 @@ public final class UploadHandler implements HttpHandler {
             sendJson(ex, 500, "{\"error\":\"assembled size mismatch\"}");
             return;
         }
-        Files.move(assembling, target, StandardCopyOption.ATOMIC_MOVE);
+        try {
+            Files.move(assembling, target, StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            // Staging is on another drive: copy next to the target, then
+            // rename there so the finished file still appears atomically.
+            Path copy = target.resolveSibling("." + target.getFileName() + "." + key(staging));
+            Files.copy(assembling, copy, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(copy, target, StandardCopyOption.ATOMIC_MOVE);
+            Files.delete(assembling);
+        }
         // Keep the file's original timestamp, not the assembly time.
         String mtime = meta.getProperty("mtime");
         if (mtime != null) {
@@ -277,7 +322,8 @@ public final class UploadHandler implements HttpHandler {
             }
         }
         deleteRecursively(staging);
-        String rel = deviceRoot.relativize(target).toString().replace('\\', '/');
+        String rel = (where.safe() ? SpecialPaths.SAFE + "/" : "")
+                + base.relativize(target).toString().replace('\\', '/');
         sendJson(ex, 200, "{\"name\":" + FilesHandler.quote(rel) + "}");
     }
 
@@ -326,10 +372,25 @@ public final class UploadHandler implements HttpHandler {
         return json.append("]}").toString();
     }
 
-    /** Top-level folder of a safe relative path, or null for a flat name. */
-    private static String topFolder(String relPath) {
-        int slash = relPath == null ? -1 : relPath.indexOf('/');
-        return slash < 0 ? null : relPath.substring(0, slash);
+    private static String key(Path staging) {
+        return staging.getFileName().toString();
+    }
+
+    /** The working folder recorded when the transfer started, or the current one. */
+    private Path startRoot(Properties meta, Path deviceRoot) {
+        String recorded = meta.getProperty("root");
+        if (recorded == null) {
+            return deviceRoot;
+        }
+        Path root = Path.of(recorded).normalize();
+        return root.startsWith(fileRoot) ? root : deviceRoot;
+    }
+
+    /** Whether the safe relative path lands in a {@link SpecialPaths} location. */
+    private boolean offLimits(Devices.Device device, Path deviceRoot, String relPath) throws IOException {
+        Path target = deviceRoot.resolve(relPath).normalize();
+        return !target.startsWith(deviceRoot)
+                || special.forbidden(FolderNames.canonical(deviceRoot, target), device);
     }
 
     static int chunkCount(long size, long chunkSize) {
@@ -368,8 +429,7 @@ public final class UploadHandler implements HttpHandler {
                 continue;
             }
             String name = sanitize(segment);
-            // The staging and trash areas are never valid client paths.
-            if (name == null || name.equals(PART_DIR) || name.equals(TrashHandler.DIR)) {
+            if (name == null) {
                 return null;
             }
             clean.add(name);
@@ -387,9 +447,12 @@ public final class UploadHandler implements HttpHandler {
         if (!target.startsWith(root)) {
             throw new IOException("unsafe path escaped sanitization: " + relPath);
         }
-        Path parent = target.getParent();
+        // Folders reuse an existing one spelled differently; a file whose
+        // name matches an existing entry ignoring case gets a suffix.
+        Path parent = FolderNames.canonical(root, target.getParent());
+        target = parent.resolve(target.getFileName().toString());
         Files.createDirectories(parent);
-        if (!Files.exists(target)) {
+        if (!FolderNames.taken(parent, target.getFileName().toString())) {
             return target;
         }
         String name = target.getFileName().toString();
@@ -398,7 +461,7 @@ public final class UploadHandler implements HttpHandler {
         String ext = dot > 0 ? name.substring(dot) : "";
         for (int n = 1; ; n++) {
             Path candidate = parent.resolve(base + " (" + n + ")" + ext);
-            if (!Files.exists(candidate)) {
+            if (!FolderNames.taken(parent, candidate.getFileName().toString())) {
                 return candidate;
             }
         }

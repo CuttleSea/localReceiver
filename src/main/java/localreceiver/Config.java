@@ -18,6 +18,16 @@ public final class Config {
             ? Path.of(System.getenv("LOCALRECEIVER_CONFIG_DIR"))
             : Path.of(System.getProperty("user.home"), ".config", "localreceiver");
     private static final Path FILE = DIR.resolve("config.properties");
+    // LOCALRECEIVER_DATA_DIR overrides where device recycle bins and
+    // upload staging live (default ~/localReceiver).
+    private static final Path DATA_DIR = System.getenv("LOCALRECEIVER_DATA_DIR") != null
+            ? Path.of(System.getenv("LOCALRECEIVER_DATA_DIR"))
+            : Path.of(System.getProperty("user.home"), "localReceiver");
+
+    /** Where each device's .trash and .uploads folders live. */
+    public static Path dataDir() {
+        return DATA_DIR;
+    }
 
     /** The per-user config directory (also holds the TLS keystore). */
     public static Path dir() {

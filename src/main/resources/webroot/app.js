@@ -705,8 +705,11 @@ if (!window.confirm(`Move ${what} to the recycle bin?`)) return;
 const res = await fetch(
 `/api/files/delete?path=${encodeURIComponent(path + entry.name)}`,
 { method: "POST" });
-if (!res.ok && res.status !== 404) {
-window.alert(`Delete failed: ${res.status}`);
+if (!res.ok) {
+const body = await res.json().catch(() => ({}));
+window.alert(`Could not delete "${entry.name}": ${body.error || `error ${res.status}`}`
++ (res.status === 404
+? ". It may already be gone, or this device may not change that folder." : ""));
 }
 loadDir(currentDir).catch(showOffline);
 if (!trashPanel.hidden) refreshTrash();
@@ -805,6 +808,9 @@ return;
 }
 pairSection.hidden = true;
 sendSection.hidden = session.write === false;
+// Plain HTTP: the server stores uploads in this device's safe folder.
+document.getElementById("http-upload-hint").hidden =
+location.protocol !== "http:" || session.write === false;
 receiveSection.hidden = session.read === false;
 browseSection.hidden = session.read === false;
 connStatus.textContent = session.name ? `Connected — paired as ${session.name}` : "Connected";

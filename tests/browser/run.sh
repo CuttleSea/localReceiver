@@ -10,11 +10,22 @@ set -eu
 REPO_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 PORT="${LOCALRECEIVER_PORT:-4655}"
 SERVE_DIR="${LOCALRECEIVER_DIR:-$(mktemp -d)}"
+# Recycle bins and upload staging, kept out of the real ~/localReceiver.
+LOCALRECEIVER_DATA_DIR="${LOCALRECEIVER_DATA_DIR:-$(mktemp -d)}"
+export LOCALRECEIVER_DATA_DIR
+# Settings (TLS CA, devices), kept out of the real ~/.config/localreceiver.
+LOCALRECEIVER_CONFIG_DIR="${LOCALRECEIVER_CONFIG_DIR:-$(mktemp -d)}"
+export LOCALRECEIVER_CONFIG_DIR
 # LOCALRECEIVER_SCHEME=https runs the whole suite over TLS (self-signed cert,
-# accepted via ignoreHTTPSErrors in the tests). Default http.
-SCHEME="${LOCALRECEIVER_SCHEME:-http}"
+# accepted via ignoreHTTPSErrors in the tests).
+# Default https: plain HTTP is read-only (except a paired device's safe
+# folder, covered by http-readonly.test.mjs), so the write tests need TLS.
+SCHEME="${LOCALRECEIVER_SCHEME:-https}"
 SCHEME_FLAG="--http"
 [ "$SCHEME" = "https" ] && SCHEME_FLAG="--https"
+export LOCALRECEIVER_SCHEME="$SCHEME"
+# Node's fetch must accept the server's self-signed certificate.
+[ "$SCHEME" = "https" ] && export NODE_TLS_REJECT_UNAUTHORIZED=0
 
 # Prefer the project's pixi-managed JDK (matches the build's class version).
 JAVA=java
@@ -37,7 +48,7 @@ done
 
 cd "$REPO_ROOT/tests/browser"
 FAIL=0
-for test in upload.test.mjs upload-resume.test.mjs download-resume.test.mjs folder-upload.test.mjs cancel.test.mjs fileops.test.mjs zip-download.test.mjs inline-view.test.mjs dir-browse.test.mjs pairing.test.mjs subdir-acl.test.mjs; do
+for test in upload.test.mjs upload-resume.test.mjs download-resume.test.mjs folder-upload.test.mjs cancel.test.mjs fileops.test.mjs zip-download.test.mjs inline-view.test.mjs dir-browse.test.mjs pairing.test.mjs subdir-acl.test.mjs http-readonly.test.mjs safe-https.test.mjs; do
     echo "=== $test ==="
     LOCALRECEIVER_PORT="$PORT" LOCALRECEIVER_DIR="$SERVE_DIR" node "$test" || FAIL=1
 done

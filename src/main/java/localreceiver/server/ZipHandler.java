@@ -22,11 +22,13 @@ import java.util.zip.ZipOutputStream;
  */
 public final class ZipHandler implements HttpHandler {
     private final Path fileRoot;
+    private final SpecialPaths special;
     private final java.util.function.Function<HttpExchange, Devices.Device> auth;
 
-    public ZipHandler(Path fileRoot,
+    public ZipHandler(Path fileRoot, SpecialPaths special,
             java.util.function.Function<HttpExchange, Devices.Device> auth) {
         this.fileRoot = fileRoot;
+        this.special = special;
         this.auth = auth;
     }
 
@@ -49,20 +51,20 @@ public final class ZipHandler implements HttpHandler {
             Path root = device.resolveRoot(fileRoot);
             Map<String, String> q = UploadHandler.query(ex);
             String raw = q.getOrDefault("path", "");
-            Path target;
-            if (raw.isBlank()) {
-                target = root;
-            } else {
-                String clean = UploadHandler.sanitizePath(raw);
-                target = clean == null ? null : root.resolve(clean).normalize();
-                if (target == null || !target.startsWith(root)
-                        || target.startsWith(fileRoot.resolve(UploadHandler.PART_DIR))) {
-                    ex.sendResponseHeaders(400, -1);
-                    return;
-                }
+            String clean = raw.isBlank() ? "" : UploadHandler.sanitizePath(raw);
+            SpecialPaths.Where where = clean == null ? null : special.locate(ex, device, root, clean);
+            if (where == null) {
+                ex.sendResponseHeaders(404, -1);
+                return;
             }
-            if (!device.canReadSub(Devices.Device.firstSegment(root, target))) {
-                ex.sendResponseHeaders(403, -1);
+            Path target = where.target();
+            boolean safe = where.safe();
+            if (!safe && special.forbidden(target, device)) {
+                ex.sendResponseHeaders(404, -1);
+                return;
+            }
+            if (!safe && !device.canReadSub(Devices.Device.firstSegment(root, target))) {
+                ex.sendResponseHeaders(404, -1);
                 return;
             }
             if (!Files.isDirectory(target)) {
@@ -74,16 +76,14 @@ public final class ZipHandler implements HttpHandler {
             ex.getResponseHeaders().set("Content-Disposition",
                     "attachment; filename*=UTF-8''" + URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20"));
             ex.sendResponseHeaders(200, 0);
-            Path staging = fileRoot.resolve(UploadHandler.PART_DIR);
-            Path trash = fileRoot.resolve(TrashHandler.DIR);
             try (ZipOutputStream zip = new ZipOutputStream(ex.getResponseBody());
                     var walk = Files.walk(target)) {
                 for (Path file : (Iterable<Path>) walk.sorted()::iterator) {
-                    if (!Files.isRegularFile(file) || file.startsWith(staging)
-                            || file.startsWith(trash)) {
+                    if (!Files.isRegularFile(file)) {
                         continue;
                     }
-                    if (!device.canReadSub(Devices.Device.firstSegment(root, file))) {
+                    if (!safe && (special.forbidden(file, device)
+                            || !device.canReadSub(Devices.Device.firstSegment(root, file)))) {
                         continue;
                     }
                     zip.putNextEntry(new ZipEntry(target.relativize(file).toString().replace('\\', '/')));

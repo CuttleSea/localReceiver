@@ -56,9 +56,9 @@ public final class ServerWindow extends JFrame {
     private final JComboBox<String> addressBox = new JComboBox<>();
     private final QrPanel qrPanel = new QrPanel();
 
-    public ServerWindow(LocalReceiverServer server, int initialPort, boolean initialHttps, Config config) {
+    public ServerWindow(LocalReceiverServer initialServer, int initialPort, boolean initialHttps, Config config) {
         super("localReceiver v" + localreceiver.Main.VERSION);
-        this.server = server;
+        this.server = initialServer;
         this.config = config;
         this.portField = new JTextField(String.valueOf(initialPort), 6);
         this.httpsBox.setSelected(initialHttps);
@@ -352,7 +352,8 @@ public final class ServerWindow extends JFrame {
 
     private static java.util.Set<String> toggled(java.util.Set<String> set, String name,
             boolean deny) {
-        java.util.Set<String> out = new java.util.TreeSet<>(set);
+        java.util.Set<String> out = new java.util.TreeSet<>(localreceiver.server.FolderNames.ORDER);
+        out.addAll(set);
         if (deny) {
             out.add(name);
         } else {
@@ -502,22 +503,20 @@ public final class ServerWindow extends JFrame {
     }
 
     /**
-     * Shows the CA certificate's SHA-256 fingerprint while serving
-     * HTTPS.
+     * Shows the CA certificate's SHA-256 fingerprint whenever a CA
+     * exists (it is served at /ca.crt in either mode).
      *
      * <p>This window is the out-of-band channel that makes installing
      * the CA safe: an attacker on the network path can substitute the
-     * certificate the device downloads, but cannot change what is
-     * printed here, so a device showing a different fingerprint is
-     * proof of interference. Without this the device has nothing to
-     * check the downloaded certificate against.
+     * certificate the device downloads and rewrite every page the
+     * device sees, but cannot change what is printed here. So the
+     * instruction to compare against the device's own certificate
+     * screen is visible text here, not a tooltip or a web page.
      */
     private void rebuildCaFingerprint() {
         caPanel.removeAll();
-        String fingerprint = server.isHttps()
-                ? localreceiver.server.TlsSupport.caFingerprint(
-                        localreceiver.server.TlsSupport.caCertificate(Config.dir()))
-                : null;
+        String fingerprint = localreceiver.server.TlsSupport.caFingerprint(
+                localreceiver.server.TlsSupport.caCertificate(Config.dir()));
         caPanel.setVisible(fingerprint != null);
         if (fingerprint != null) {
             // Split in two so the 95-character fingerprint does not
@@ -525,10 +524,11 @@ public final class ServerWindow extends JFrame {
             int half = fingerprint.length() / 2;
             JLabel label = new JLabel("<html>Certificate SHA-256:<br>"
                     + fingerprint.substring(0, half) + "<br>"
-                    + fingerprint.substring(half) + "</html>");
+                    + fingerprint.substring(half) + "<br>"
+                    + "<small>Before trusting the certificate on a device, check that the"
+                    + "<br>device's own certificate details show this SHA-256."
+                    + "<br>Never rely on a fingerprint shown by a web page.</small></html>");
             label.setFont(label.getFont().deriveFont(Font.PLAIN));
-            label.setToolTipText("Compare this with the fingerprint the device shows"
-                    + " before installing the certificate there");
             JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
             row.add(label);
             JButton copyButton = new JButton("Copy");

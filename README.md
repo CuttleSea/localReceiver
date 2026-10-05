@@ -31,18 +31,25 @@ dropped connections and page reloads.
 3. Run the jar (double-click, or `java -jar localreceiver.jar`). Press
    **Start** in the window — or run `java -jar localreceiver.jar --headless`
    on machines without a display (`--port <n>` to override the port,
-   default 4646; `--http` to disable TLS; `--browse` to enable
-   directory listing pages).
+   default 4646; `--http` to disable TLS — the shared folder is then
+   read-only and each paired device can only write into its own `safe`
+   folder, stored at `~/localReceiver/<device>/safe`; `--browse` to
+   enable directory listing pages).
 4. **Pair each device**: click **Pair device…** in the server window
    and let the other device scan the QR code (or open the site and
    type the one-time code), then give the device a name — lower-case
    letters, digits and `_`, unique on this server. Until a device
-   pairs, it sees nothing — and each newly paired device only sees
-   its own folder (named after it) until you allow more: change its
-   folder, or tick/untick per-subfolder Read/Write in the window.
+   pairs, it sees nothing. A newly paired device starts **read-only**
+   in the shared folder; allow writing per device in the window (or
+   start with `--new-devices-read-write` to pair them read+write), and
+   narrow it by changing its folder or ticking per-subfolder
+   Read/Write. Its own data (bin, upload
+   staging, HTTP `safe` folder) lives apart in
+   `~/localReceiver/<device id>/`, never in the shared folder.
    Devices can be renamed at any time; that changes the name only,
-   never the folder (headless mode prints pairing codes on the console;
-   `--open` disables pairing entirely).
+   never a folder (headless mode prints pairing codes on the console
+   and takes the commands `devices` and `remove <name>` to list and
+   revoke devices; `--open` disables pairing entirely).
 5. On the paired device, open the URL the window shows — click it on
    the server to open it in your own browser, or scan the QR code it
    displays (`https://<your-ip>:4646/`). Accept the one-time
@@ -51,9 +58,11 @@ dropped connections and page reloads.
    localReceiver generates its own per-user certificate authority, so
    installing that one certificate removes the warnings on every
    future session and lets the page install as an app. **Before you
-   install it, check that the SHA-256 fingerprint the page shows
-   matches the one in the localReceiver window** — if they differ, something
-   on the network is impersonating the server. Nothing leaves your
+   trust it, check that the SHA-256 fingerprint in the device's own
+   certificate details matches the one in the localReceiver window**
+   (the install page says where each platform shows it; never trust a
+   fingerprint shown by a web page) — if they differ, something on the
+   network is impersonating the server. Nothing leaves your
    network. Drop files onto the page to send; tap listed files to
    download.
 
@@ -61,18 +70,18 @@ dropped connections and page reloads.
 
 - **Private by default — one session per device**: nothing is visible
   without pairing via a one-time QR/text code and a user-chosen
-  device name. Each paired device gets its own folder plus per-device
-  Read/Write/Browse switches and a per-subfolder Read/Write
-  checklist in the server window, so devices cannot see the host's
-  files or each other unless the host allows it. A device's folder is
-  independent of its name: renaming a device never moves its files, and
+  device name. Each paired device gets a working folder (the shared
+  folder at first) plus per-device Read/Write/Browse switches and a
+  per-subfolder Read/Write checklist in the server window, and a
+  device folder `~/localReceiver/<device id>/` for its own data. Both
+  are independent of its name: renaming a device never moves files, and
   several devices can be pointed at one shared folder without a rename
   disturbing it.
 - **Chunked, parallel, resumable transfers** in both directions:
   interrupted uploads and downloads continue from the chunks already
   done — across page reloads (staged in the browser's private storage,
-  OPFS) and across server restarts (staged in a hidden `.localreceiver-part/`
-  folder). Any transfer can be cancelled with full clean-up.
+  OPFS) and across server restarts (staged in
+  `~/localReceiver/<device>/.uploads/`, outside the shared folder). Any transfer can be cancelled with full clean-up.
 - **Folder uploads**: pick a folder or drag one onto the page; the
   directory structure is recreated on the server. Folders in the list
   can be downloaded as a zip archive.
@@ -168,38 +177,44 @@ localReceiver 由一個小巧的 **Java 伺服器程式**（Windows/macOS/Linux�
 3. 執行 jar（雙擊，或 `java -jar localreceiver.jar`），在視窗中按下
    **Start**——沒有螢幕的機器可執行
    `java -jar localreceiver.jar --headless`（`--port <n>` 可更改連接埠，
-   預設 4646；`--http` 停用 TLS；`--browse` 可啟用目錄列表頁面）。
+   預設 4646；`--http` 停用 TLS——此時共享資料夾為唯讀，每台已配對
+   裝置只能寫入自己的 `safe` 資料夾（存放於 `~/localReceiver/<裝置>/safe`）；
+   `--browse` 可啟用目錄列表頁面）。
 4. **為每台裝置配對**：在伺服器視窗點選 **Pair device…**，讓另一台
    裝置掃描 QR Code（或開啟網站後輸入一次性配對碼），並為裝置取一個
    名稱——小寫英文字母、數字與 `_`，且在此伺服器上不得重複。裝置在
-   配對前看不到任何內容——每台新配對的裝置預設只能看到以自己命名的
-   資料夾，除非你放寬權限：可更換其資料夾，或在視窗中勾選／取消每個
-   子資料夾的讀寫權限。裝置隨時可重新命名，這只會變更名稱，不會變更
-   資料夾（無圖形介面模式會在主控台印出配對碼；`--open` 可完全停用
-   配對）。
+   配對前看不到任何內容。新配對的裝置一開始以**唯讀**方式位於共享
+   資料夾；可在視窗中為個別裝置允許寫入（或以
+   `--new-devices-read-write` 啟動，讓新裝置配對後即可讀寫），並可
+   更換其資料夾，或勾選／取消每個子資料夾的讀寫權限來縮小範圍。
+   裝置自己的資料（資源回收筒、上傳暫存、HTTP `safe` 資料夾）另存於
+   `~/localReceiver/<裝置 id>/`，不會放在共享資料夾中。裝置隨時可重新
+   命名，這只會變更名稱，不會變更任何資料夾（無圖形介面模式會在主控台印出配對碼，並可輸入 `devices` 與
+   `remove <名稱>` 指令列出及撤銷裝置；`--open` 可完全停用配對）。
 5. 在配對好的裝置上開啟視窗顯示的網址——在伺服器端點選網址即可用
    本機預設瀏覽器開啟，或掃描視窗顯示的 QR Code
    （`https://<你的-ip>:4646/`）。接受一次性的憑證警告，或更好的做法：
    點選頁尾的 **Install the localReceiver certificate**（亦可於 `/ca.crt`
    取得）並信任它——localReceiver 會產生專屬於使用者的憑證授權單位（CA），
    安裝這一張憑證即可移除日後所有工作階段的警告，並允許將頁面安裝為
-   應用程式。**安裝前請先核對網頁顯示的 SHA-256 憑證指紋與 localReceiver
-   視窗中顯示的是否相同**——若不相同，表示網路上可能有人正在冒充這台
-   伺服器。一切都不會離開你的網路。將檔案拖放到頁面即可傳送；
+   應用程式。**信任前請先核對裝置本身憑證詳細資料中的 SHA-256 憑證指紋與
+   localReceiver 視窗中顯示的是否相同**（安裝頁說明各平台在哪裡顯示；
+   切勿相信網頁上顯示的指紋）——若不相同，表示網路上可能有人正在冒充
+   這台伺服器。一切都不會離開你的網路。將檔案拖放到頁面即可傳送；
    點選清單中的檔案即可下載。
 
 ### 功能特色
 
 - **預設保密——每台裝置一個工作階段**：未配對前看不到任何內容，
   配對透過一次性的 QR Code 或文字配對碼完成，並由使用者為裝置命名。
-  每台已配對的裝置有自己的資料夾，可在伺服器視窗中個別設定
-  讀取／寫入／瀏覽權限，還有逐一子資料夾的讀寫勾選清單，因此除非
-  主機允許，裝置之間看不到彼此的檔案，也看不到主機的檔案。裝置的
-  資料夾與其名稱互相獨立：重新命名裝置不會搬動任何檔案，也可讓多台
+  每台已配對的裝置有一個工作資料夾（一開始是共享資料夾），可在伺服器
+  視窗中個別設定讀取／寫入／瀏覽權限，還有逐一子資料夾的讀寫勾選清單；
+  另有裝置資料夾 `~/localReceiver/<裝置 id>/` 存放它自己的資料。兩者
+  都與裝置名稱互相獨立：重新命名裝置不會搬動任何檔案，也可讓多台
   裝置共用同一個資料夾，重新命名不會影響它。
 - **分塊、並行、可續傳的雙向傳輸**：中斷的上傳與下載會從已完成的
   分塊接續——頁面重新載入（暫存於瀏覽器私有儲存空間 OPFS）與
-  伺服器重啟（暫存於隱藏的 `.localreceiver-part/` 資料夾）皆可續傳。
+  伺服器重啟（暫存於共享資料夾以外的 `~/localReceiver/<裝置>/.uploads/`）皆可續傳。
   任何傳輸都能取消並完整清除暫存。
 - **資料夾上傳**：選取或拖放整個資料夾，伺服器會重建其目錄結構。
   清單中的資料夾可打包為 zip 壓縮檔下載。

@@ -47,7 +47,7 @@ const opfs = await page.evaluate(async () => {
 });
 console.log("OPFS staging after cancel:", opfs);
 
-const partDir = join(SERVE_DIR, ".localreceiver-part");
+const partDir = join(process.env.LOCALRECEIVER_DATA_DIR, ".uploads");
 const serverStaging = existsSync(partDir) ? readdirSync(partDir) : [];
 console.log("server staging after cancel:", serverStaging);
 

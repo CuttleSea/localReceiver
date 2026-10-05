@@ -24,7 +24,7 @@ export async function launchBrowser() {
 export const CONTEXT_OPTIONS = { ignoreHTTPSErrors: true };
 
 export const PORT = process.env.LOCALRECEIVER_PORT || "4646";
-export const SCHEME = process.env.LOCALRECEIVER_SCHEME || "http";
+export const SCHEME = process.env.LOCALRECEIVER_SCHEME || "https";
 export const SERVE_DIR = process.env.LOCALRECEIVER_DIR;
 export const BASE = `${SCHEME}://localhost:${PORT}`;
 

@@ -34,6 +34,11 @@ placeholder="XXXX-XXXX" aria-label="Pairing code" required>
 </section>
 <section id="send-section">
 <h2>Send files</h2>
+<p id="http-upload-hint" class="muted" hidden>
+This connection is plain HTTP, so the shared folder is read-only.
+Your uploads go to your <strong>safe</strong> folder (listed at the top
+of the file list), keeping the folder you pick inside it.
+</p>
 <div id="drop-zone" tabindex="0" role="button" aria-label="Select or drop files to send">
 <p><strong>Drop files or folders here</strong> or tap to choose files</p>
 <p><button id="folder-button" type="button">Choose a folder…</button></p>
@@ -90,11 +95,6 @@ Deleted items wait here until restored or removed forever.
 <a href="/cert-help.html">Install the localReceiver certificate</a>
 to remove browser warnings and enable app install on this device.
 </p>
-<p class="muted" id="ca-fingerprint-note" hidden>
-Certificate SHA-256: <code id="ca-fingerprint"></code><br>
-Only install it if this matches the fingerprint shown in the localReceiver
-window on the host computer.
-</p>
 <p class="muted">
 Privacy: this app uses no external JavaScript libraries, no frameworks,
 no external web fonts, and no external APIs beyond those built into your
@@ -102,7 +102,6 @@ browser. Everything is served by this localReceiver server on your own network.
 </p>
 <p class="muted">localReceiver — local file transfer. GPL-3.0.</p>
 </footer>
-<script src="/cert-check.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

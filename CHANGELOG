@@ -8,6 +8,106 @@ that section to `## vX.Y.Z — title (YYYY-MM-DD)`.
 
 ## Unreleased
 
+## v1.1.0 — security hardening (2026-10-05)
+
+- Folder and file names are now case-insensitive on every platform. A
+  subfolder denied as `Private` can no longer be reached as `PRIVATE`,
+  `private.` or another Unicode spelling on Windows or macOS. On a
+  case-sensitive drive, a path like `photos/x.jpg` goes into an existing
+  `Photos` folder, and an upload, move or restore whose name differs from
+  an existing one only by case gets a " (n)" suffix; creating or renaming
+  to such a name is refused as already existing.
+- Each device's recycle bin and upload staging now live outside the
+  shared folder, at `~/localReceiver/<device id>/.trash` and `.uploads`
+  (`~/localReceiver/.trash` and `.uploads` in open mode; override with
+  `LOCALRECEIVER_DATA_DIR`). Changing the shared folder or a device's
+  folder no longer moves them, and no device can browse another's bin
+  or uploads through `/files/` or zips. The old shared
+  `.localreceiver-trash` and `.localreceiver-part` folders are not
+  migrated; they stay where they are and are blocked.
+- The settings folder (`~/.config/localreceiver`: TLS keys, device
+  tokens) can never be read, zipped, moved or written by any web-app
+  user, even when it sits inside the shared folder.
+- A folder a device may not read can no longer be renamed, moved or
+  deleted by that device (or have its contents moved out). When a
+  device allowed to rename it does so, every deny rule on it follows it
+  to the new name; moving it somewhere its rules cannot follow is
+  refused.
+- Over plain HTTP (`--http`) the shared folder is now read-only for
+  every web-app user. Each paired device gets a `safe` folder in its
+  file list, stored at `~/localReceiver/<device id>/safe`, which it can
+  read and write; its uploads go there. Open mode over HTTP is fully
+  read-only. HTTPS is unchanged. The browser test suite now runs over
+  HTTPS by default, and `http-readonly.test.mjs` covers HTTP.
+- A device's working folder (or a folder containing one) can no longer
+  be deleted, renamed or moved from the web app.
+- The pairing toggle (and directory-browsing toggle) now reach the
+  running server after the shared folder is changed with "Change…".
+- Over HTTPS, a device whose folder is its own device folder
+  (`~/localReceiver/<device id>/`) sees its `safe` folder there as a
+  normal folder. Its bin and upload staging stay hidden, and the `safe`
+  folder itself cannot be renamed, moved or deleted.
+- Certificate check: the web pages no longer show a fingerprint, and
+  `/ca-fingerprint` and the `X-CA-Fingerprint-SHA256` header are gone,
+  since an attacker on the network could fake them. The server window
+  (whenever a certificate exists) and the headless console show the
+  fingerprint with the instruction to compare it against the device's
+  own certificate details. The install guide now says, for each
+  platform, where the device shows the SHA-256, and on Linux to check
+  the file holds a single certificate.
+- The certificate authority is now limited by name constraints to
+  `localhost` and local network addresses (private, link-local,
+  carrier-grade NAT, IPv6 local), so even a trusted copy cannot vouch
+  for a public website. A certificate from v1.0.0, which lacks them, is
+  replaced on the next HTTPS start: install the new one on your devices.
+- ttDrop leftovers are no longer supported: certificate stores without
+  a `keystore.pass` (from ttDrop) are replaced by a fresh certificate
+  instead of being migrated.
+- Newly paired devices start read-only. Allow writing per device in the
+  window, or start the server with `--new-devices-read-write`.
+- Headless mode takes console commands: `devices` lists paired
+  devices and `remove <name>` revokes one at once.
+- Opening the server by an unknown host name now shows a short page
+  explaining which address to use, instead of a raw error.
+- A failed delete now says why instead of failing silently.
+- Over plain HTTP, the send area explains that uploads go to the
+  device's `safe` folder.
+- Cross-site requests are refused: a write whose `Origin` is not the
+  server's own gets 403, so another website cannot delete, move or
+  upload files, open mode included.
+- The app can no longer be shown inside another site's frame
+  (clickjacking), and every response carries a strict
+  Content-Security-Policy.
+- Paths a device may not reach (deny-listed, off limits, outside its
+  folder) now answer 404 like missing ones instead of 403, so a device
+  cannot tell what exists there.
+- A newly paired device no longer gets a folder named after it in the
+  shared folder. Its working folder starts as the shared folder
+  itself (narrow it with "Folder…" or the subfolder checklist), and its
+  own data lives in its device folder `~/localReceiver/<device id>/`.
+  Because that folder is keyed by the random id, a new device can no
+  longer land in an existing folder by choosing a matching name.
+- When the host changes a device's working folder, an upload or
+  download already in progress finishes in the folder it started in;
+  the change applies from the next action. A download whose file
+  changes on the server mid-way restarts instead of mixing the two
+  versions.
+- The server refuses requests addressed to an unknown host name (421),
+  which stops DNS-rebinding pages from reading files. `localhost`, the
+  computer's name and IP addresses on its own networks work; the
+  networks are detected automatically, so nothing needs configuring.
+- Windows short names (`PRIVAT~1`) no longer get around a subfolder's
+  deny rules.
+- A pairing code is burned after three names were rejected as already
+  taken, so it cannot be used to probe which device names exist.
+  When the host changes a device's working folder, an upload already
+  in progress still finishes in the folder it started in; the change
+  applies from the next action.
+- Pairing code guesses are rate limited: after five wrong codes in ten
+  minutes, that address gets 429 until the ten minutes are up.
+- `/api/pair` no longer reveals which device names exist to callers
+  without a valid pairing code.
+
 ## v1.0.0 — renamed to localReceiver (2026-10-05)
 
 - The project is renamed from ttDrop to localReceiver everywhere: app

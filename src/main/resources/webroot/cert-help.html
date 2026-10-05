@@ -23,18 +23,22 @@ warnings, and the page can be installed as an app.
 First download the certificate:
 <a href="/ca.crt"><strong>localreceiver-ca.crt</strong></a>.
 Then follow your platform below. The certificate is generated on
-the computer running localReceiver and never leaves your network; it can
-only vouch for that computer's own localReceiver servers.
+the computer running localReceiver and never leaves your network. It
+is limited to local addresses (<code>localhost</code> and private
+network IPs), so it cannot vouch for any public website.
 </p>
 
-<p id="ca-fingerprint-note" hidden>
-<strong>Check the fingerprint first.</strong> The localReceiver window on the
-host computer shows the certificate's SHA-256 fingerprint. This page
-received:<br>
-<code id="ca-fingerprint"></code><br>
-If the two differ, do not install it — someone on the network may be
-impersonating the server. Trusting a certificate authority lasts until
-you remove it, so it is worth the ten seconds.
+<p>
+<strong>Check the fingerprint on the device, not on a web page.</strong>
+The localReceiver window on the host computer (or its console, when it
+runs without a window) shows the certificate's SHA-256 fingerprint.
+Each platform below says where the device itself shows the SHA-256 of
+the certificate you downloaded. If that differs from the host's —
+ignoring colons, spaces and upper/lower case — do not trust it (or
+remove it again): someone on the network may be impersonating the
+server. A substituted certificate could vouch for any website until
+you remove it, so this check matters. Do not rely on any
+fingerprint shown by a web page, this one included.
 </p>
 
 <section>
@@ -45,6 +49,11 @@ tap <em>Allow</em> when asked to download a configuration
 profile.</li>
 <li>Open <em>Settings</em> — a <em>Profile Downloaded</em> entry
 appears near the top. Tap it and tap <em>Install</em>.</li>
+<li>Before trusting it, open <em>Settings → General → VPN &amp;
+Device Management</em>, tap the <em>localReceiver CA</em>
+profile → <em>More Details</em> → the certificate, and compare
+<em>SHA-256</em> under <em>Fingerprints</em> with the host's. If it
+differs, tap <em>Remove Profile</em> instead.</li>
 <li>Then go to <em>Settings → General → About → Certificate
 Trust Settings</em> and switch on full trust for
 <em>localReceiver CA</em>.</li>
@@ -62,6 +71,10 @@ certificate → CA certificate</em> (wording varies by
 vendor).</li>
 <li>Choose <em>Install anyway</em> and pick the downloaded
 file.</li>
+<li>Open <em>Encryption &amp; credentials → Trusted credentials →
+User</em>, tap <em>localReceiver CA</em>, and compare its
+<em>SHA-256 fingerprint</em> with the host's. If it differs, tap
+<em>Remove</em>.</li>
 <li>Reload the localReceiver page.</li>
 </ol>
 </section>
@@ -69,8 +82,13 @@ file.</li>
 <section>
 <h2>Windows</h2>
 <ol>
-<li>Download <a href="/ca.crt">localreceiver-ca.crt</a> and open it.</li>
-<li>Click <em>Install Certificate…</em>, choose
+<li>Download <a href="/ca.crt">localreceiver-ca.crt</a>.</li>
+<li>Check it first: in a terminal run
+<code>certutil -dump localreceiver-ca.crt</code> and compare the
+<em>Cert Hash(sha256)</em> line with the host's. Do not continue if
+it differs. (The <em>Thumbprint</em> in the certificate dialog is
+SHA-1, not SHA-256.)</li>
+<li>Open the file, click <em>Install Certificate…</em>, choose
 <em>Local Machine</em> (or <em>Current User</em>).</li>
 <li>Select <em>Place all certificates in the following store</em>
 → <em>Trusted Root Certification Authorities</em> → finish.</li>
@@ -86,7 +104,9 @@ Keychain Access imports it.</li>
 <li>In Keychain Access, find <em>localReceiver CA</em> (System or
 login keychain), open it, expand <em>Trust</em>, and set
 <em>When using this certificate</em> to
-<em>Always Trust</em>.</li>
+<em>Always Trust</em> — but first compare <em>SHA-256</em> under
+<em>Fingerprints</em> in the same window with the host's; if it
+differs, delete the certificate instead.</li>
 <li>Restart the browser.</li>
 </ol>
 </section>
@@ -94,6 +114,11 @@ login keychain), open it, expand <em>Trust</em>, and set
 <section>
 <h2>Linux</h2>
 <ol>
+<li>Check the file first. <code>grep -c 'BEGIN CERTIFICATE'
+localreceiver-ca.crt</code> must print <code>1</code>, and
+<code>openssl x509 -in localreceiver-ca.crt -noout -fingerprint
+-sha256</code> must match the host's. Do not continue otherwise —
+a file holding a second certificate would have it trusted too.</li>
 <li>System-wide (Debian/Ubuntu):
 <code>sudo cp localreceiver-ca.crt
 /usr/local/share/ca-certificates/ &amp;&amp; sudo
@@ -102,7 +127,8 @@ update-ca-certificates</code>
 <code>update-ca-trust</code>).</li>
 <li>Chromium and Firefox keep their own store — import via
 the browser's <em>Settings → Privacy/Security →
-Certificates → Import</em>, trusting it for websites.</li>
+Certificates → Import</em>, trusting it for websites. Firefox's
+<em>View</em> button shows the SHA-256 fingerprint to compare.</li>
 <li>Restart the browser.</li>
 </ol>
 </section>
@@ -127,6 +153,5 @@ browser. Everything is served by this localReceiver server on your own network.
 </p>
 <p class="muted">localReceiver — local file transfer. GPL-3.0.</p>
 </footer>
-<script src="/cert-check.js"></script>
 </body>
 </html>

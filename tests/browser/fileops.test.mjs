@@ -41,6 +41,23 @@ await page.waitForFunction(
 );
 check("deleted on disk", !existsSync(join(SERVE_DIR, "ops", "victim.txt")));
 
+// A failed delete says why: the file vanished from disk after listing.
+writeFileSync(join(SERVE_DIR, "ops", "ghost.txt"), "gone soon");
+await page.evaluate(() => loadDir(currentDir));
+await page.waitForSelector(`#server-list a:text("ghost.txt")`);
+rmSync(join(SERVE_DIR, "ops", "ghost.txt"));
+const messages = [];
+const onDialog = (d) => {
+  messages.push(d.message());
+  d.accept();
+};
+page.on("dialog", onDialog);
+await page.click(`#server-list li:has(a:text("ghost.txt")) button[title^="Delete"]`);
+for (let i = 0; i < 50 && messages.length < 2; i++) await page.waitForTimeout(100);
+page.off("dialog", onDialog);
+check("a failed delete shows an error message",
+  messages.length === 2 && messages[1].includes("Could not delete \"ghost.txt\""));
+
 // Recursive folder delete from the parent listing
 await page.click(`#breadcrumbs a:text("files")`);
 await page.waitForSelector(`#server-list a:text("ops/")`);

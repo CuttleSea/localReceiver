@@ -17,32 +17,50 @@ public final class DevicesTest {
     public static void main(String[] args) throws Exception {
         Path configDir = Files.createTempDirectory("devices-config");
         Path root = Files.createTempDirectory("devices-root");
-        Devices devices = new Devices(configDir);
+        Path dataDir = Files.createTempDirectory("devices-data");
+        Devices devices = new Devices(configDir, dataDir);
 
         String code = devices.newPairingCode();
         check("bad name rejected", "name".equals(devices.pair(code, "Bad-Name", root).error()));
         check("bad name does not burn the code",
             devices.pair(code, "dev_a", root).token() != null);
-        check("device folder created", Files.isDirectory(root.resolve("dev_a")));
         String idA = devices.list().get(0).id();
+        check("device folder created under the id", Files.isDirectory(dataDir.resolve(idA)));
+        check("working folder starts at the shared folder", devices.get(idA).relPath().isEmpty());
+        check("a new device is read-only by default",
+            devices.get(idA).read() && !devices.get(idA).write());
+        check("nothing named after the device in the shared folder",
+            !Files.exists(root.resolve("dev_a")));
 
         String code2 = devices.newPairingCode();
         check("duplicate name rejected", "taken".equals(devices.pair(code2, "dev_a", root).error()));
+        check("bad code with a taken name reports the code, not the name",
+            "code".equals(devices.pair("0000-0000", "dev_a", root).error()));
         check("used code rejected", "code".equals(devices.pair(code, "dev_b", root).error()));
+        devices.setNewDeviceWrite(true);
         check("fresh code still valid after rejections",
             devices.pair(code2, "dev_b", root).token() != null);
+        check("with read+write on, a new device may write", devices.list().stream()
+            .filter(d -> d.name().equals("dev_b")).findFirst().orElseThrow().write());
+        devices.setNewDeviceWrite(false);
+
+        String code3 = devices.newPairingCode();
+        check("taken name rejected (1)", "taken".equals(devices.pair(code3, "dev_a", root).error()));
+        check("taken name rejected (2)", "taken".equals(devices.pair(code3, "dev_b", root).error()));
+        check("third taken name still reports taken",
+            "taken".equals(devices.pair(code3, "dev_a", root).error()));
+        check("three rejected names burn the code",
+            "code".equals(devices.pair(code3, "dev_new", root).error()));
 
         check("rename rejects upper case", "name".equals(devices.rename(idA, "DevA")));
         check("rename rejects taken name", "taken".equals(devices.rename(idA, "dev_b")));
         check("rename succeeds", devices.rename(idA, "dev_c") == null);
         check("registry carries the new name", devices.get(idA).name().equals("dev_c"));
 
-        // The folder is decoupled from the name: a rename moves nothing
-        // and leaves the device pointed at the folder it already had.
+        // Both folders are decoupled from the name: a rename moves nothing.
         check("device folder not renamed",
-            Files.isDirectory(root.resolve("dev_a")) && !Files.exists(root.resolve("dev_c")));
-        check("device keeps its original folder",
-            devices.get(idA).relPath().equals("dev_a"));
+            Files.isDirectory(dataDir.resolve(idA)) && !Files.exists(root.resolve("dev_c")));
+        check("device keeps its working folder", devices.get(idA).relPath().isEmpty());
 
         // Three devices sharing one browsing root: renaming any of them
         // must not move that root nor repoint the others.
@@ -62,6 +80,17 @@ public final class DevicesTest {
                 .filter(d -> d.name().startsWith("share_"))
                 .filter(d -> d.relPath().equals("shared")).count() == 3);
 
+        // Deny lists match folder names case-insensitively, ignoring
+        // trailing dots/spaces and Unicode normalization form.
+        Devices.Device denied = new Devices.Device("x", "x", "", true, true, true,
+            java.util.Set.of("Private", "Caf\u00e9"), java.util.Set.of("Inbox"));
+        check("deny matches exact name", !denied.canReadSub("Private"));
+        check("deny matches other case", !denied.canReadSub("PRIVATE"));
+        check("deny matches trailing dot", !denied.canReadSub("private."));
+        check("deny matches NFD spelling", !denied.canReadSub("Cafe\u0301"));
+        check("write deny matches other case", !denied.canWriteSub("inbox"));
+        check("other folders stay allowed", denied.canReadSub("Public") && denied.canWriteSub("Private"));
+
         // Legacy pre-v0.18 devices can carry upper-case names/folders;
         // renaming them lower-cases the name only, folder untouched.
         Files.writeString(configDir.resolve("devices.properties"), String.join("\n",
@@ -70,7 +99,7 @@ public final class DevicesTest {
             "d.legacy1.path=Windows",
             "d.legacy1.read=true", "d.legacy1.write=true", "d.legacy1.browse=true") + "\n");
         Files.createDirectories(root.resolve("Windows"));
-        Devices legacy = new Devices(configDir);
+        Devices legacy = new Devices(configDir, dataDir);
         check("legacy uppercase device loads", legacy.get("legacy1") != null);
         check("legacy rename succeeds", legacy.rename("legacy1", "win_pc") == null);
         check("legacy folder stays where it is",

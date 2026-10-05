@@ -9,9 +9,9 @@ import localreceiver.server.TlsSupport;
 
 /**
  * Headless TLS material test: the per-installation keystore password
- * (random, owner-only, migrated off the old fixed literal without
- * disturbing the CA) and the CA fingerprint published for out-of-band
- * verification. Run:
+ * (random, owner-only; stores without one are replaced), the CA fingerprint published for out-of-band
+ * verification, and the CA's name constraints (a CA without them is
+ * replaced once). Run:
  * java -cp dist/localreceiver.jar tests/server/TlsSupportTest.java
  */
 public final class TlsSupportTest {
@@ -29,9 +29,7 @@ public final class TlsSupportTest {
             Files.exists(caStore) && Files.exists(keystore));
         String secret = Files.readString(passFile).trim();
         check("password file written", !secret.isEmpty());
-        check("password is not the old fixed literal", !secret.equals("ttdrop"));
         check("password is 128 random bits of hex", secret.matches("[0-9a-f]{32}"));
-        check("the old fixed password no longer opens the CA store", !opens(caStore, "ttdrop"));
         check("the generated password opens the CA store", opens(caStore, secret));
         check("the generated password opens the server keystore", opens(keystore, secret));
         check("key material is owner-only",
@@ -47,6 +45,25 @@ public final class TlsSupportTest {
         check("no fingerprint without a certificate",
             TlsSupport.caFingerprint(dir.resolve("absent.crt")) == null);
 
+        java.security.cert.X509Certificate ca;
+        try (InputStream in = Files.newInputStream(dir.resolve("ca.crt"))) {
+            ca = (java.security.cert.X509Certificate)
+                java.security.cert.CertificateFactory.getInstance("X.509").generateCertificate(in);
+        }
+        check("CA carries critical name constraints",
+            ca.getCriticalExtensionOIDs().contains("2.5.29.30"));
+        boolean javaParses;
+        try {
+            byte[] ext = ca.getExtensionValue("2.5.29.30");
+            // getExtensionValue wraps the DER in an OCTET STRING: strip it.
+            byte[] der = java.util.Arrays.copyOfRange(ext, ext[1] == (byte) 0x81 ? 3 : 2, ext.length);
+            new java.security.cert.TrustAnchor(ca, der);
+            javaParses = true;
+        } catch (IllegalArgumentException e) {
+            javaParses = false;
+        }
+        check("the name constraints parse as valid DER", javaParses);
+
         // A restart must reuse the CA: regenerating it would silently
         // invalidate the trust every paired device already installed.
         TlsSupport.sslContext(dir);
@@ -54,26 +71,38 @@ public final class TlsSupportTest {
             fingerprint.equals(TlsSupport.caFingerprint(TlsSupport.caCertificate(dir))));
         check("restart keeps the same password", secret.equals(Files.readString(passFile).trim()));
 
-        // Pre-v0.24 layout: stores encrypted with the fixed password and
-        // no password file. Starting must re-encrypt them in place.
-        storepasswd(caStore, secret, "ttdrop");
-        storepasswd(keystore, secret, "ttdrop");
+        // Stores without a password file (ttDrop leftovers, unsupported)
+        // cannot be opened: they are replaced by a fresh CA.
         Files.delete(passFile);
         TlsSupport.sslContext(dir);
-        String migrated = Files.readString(passFile).trim();
-        check("legacy install migrates to a random password",
-            migrated.matches("[0-9a-f]{32}") && !migrated.equals("ttdrop"));
-        check("migrated stores open with the new password",
-            opens(caStore, migrated) && opens(keystore, migrated));
-        check("migrated stores reject the old fixed password", !opens(caStore, "ttdrop"));
-        check("migration leaves the CA — and installed trust — untouched",
-            fingerprint.equals(TlsSupport.caFingerprint(TlsSupport.caCertificate(dir))));
+        String fresh = Files.readString(passFile).trim();
+        check("a missing password file gets a new random password",
+            fresh.matches("[0-9a-f]{32}") && !fresh.equals(secret));
+        check("stores without a password file are replaced",
+            opens(caStore, fresh) && opens(keystore, fresh)
+            && !fingerprint.equals(TlsSupport.caFingerprint(TlsSupport.caCertificate(dir))));
+
+        // A readable CA without name constraints (v1.0.0) is replaced once.
+        Path old = Files.createTempDirectory("localreceiver-tls-old");
+        keytool("-genkeypair", "-alias", "old-ca", "-keyalg", "RSA", "-keysize", "2048",
+            "-dname", "CN=old", "-ext", "bc:c=ca:true", "-storetype", "PKCS12",
+            "-keystore", old.resolve("old.p12").toString(), "-storepass", "changeit");
+        keytool("-exportcert", "-rfc", "-alias", "old-ca",
+            "-keystore", old.resolve("old.p12").toString(), "-storepass", "changeit",
+            "-file", old.resolve("ca.crt").toString());
+        Files.writeString(old.resolve("ca.p12"), "stale");
+        String oldPrint = TlsSupport.caFingerprint(old.resolve("ca.crt"));
+        TlsSupport.sslContext(old);
+        check("a CA without name constraints is replaced",
+            !oldPrint.equals(TlsSupport.caFingerprint(old.resolve("ca.crt"))));
 
         // An unreadable CA store must fail loudly rather than quietly
         // minting a new CA under the devices that trusted the old one.
         Path broken = Files.createTempDirectory("localreceiver-tls-broken");
         Files.writeString(broken.resolve("ca.p12"), "not a keystore");
         Files.writeString(broken.resolve("ca.crt"), "not a certificate");
+        // A localReceiver install always has its password file.
+        Files.writeString(broken.resolve("keystore.pass"), "0".repeat(32));
         boolean threw = false;
         try {
             TlsSupport.sslContext(broken);
@@ -132,14 +161,14 @@ public final class TlsSupportTest {
         return out.toString();
     }
 
-    static void storepasswd(Path store, String oldPass, String newPass) throws Exception {
-        Path keytool = Path.of(System.getProperty("java.home"), "bin", "keytool");
-        Process process = new ProcessBuilder(keytool.toString(), "-storepasswd",
-            "-keystore", store.toString(), "-storepass", oldPass, "-new", newPass)
-            .redirectErrorStream(true).start();
+    static void keytool(String... args) throws Exception {
+        java.util.List<String> cmd = new java.util.ArrayList<>();
+        cmd.add(Path.of(System.getProperty("java.home"), "bin", "keytool").toString());
+        cmd.addAll(java.util.List.of(args));
+        Process process = new ProcessBuilder(cmd).redirectErrorStream(true).start();
         process.getInputStream().readAllBytes();
         if (process.waitFor() != 0) {
-            throw new IllegalStateException("could not stage the legacy keystore");
+            throw new IllegalStateException("keytool " + args[0] + " failed");
         }
     }
 

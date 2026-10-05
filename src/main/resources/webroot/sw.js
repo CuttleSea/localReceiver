@@ -1,8 +1,8 @@
 "use strict";
 
-const CACHE = "localreceiver-shell-v17";
+const CACHE = "localreceiver-shell-v20";
 const SHELL = ["/", "/style.css", "/app.js", "/uploader.js", "/downloader.js",
-"/cert-check.js", "/cert-help.html", "/manifest.webmanifest", "/icon.svg",
+"/cert-help.html", "/manifest.webmanifest", "/icon.svg",
 "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -24,7 +24,7 @@ const url = new URL(event.request.url);
 if (url.pathname.startsWith("/files/") || url.pathname.startsWith("/api/")) {
 return;
 }
-if (url.pathname === "/ca-fingerprint" || url.pathname === "/ca.crt") {
+if (url.pathname === "/ca.crt") {
 return;
 }
 event.respondWith(

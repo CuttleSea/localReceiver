@@ -28,15 +28,20 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@link #OPEN} device, which sees the whole root — the pre-v0.16
  * behavior.
  *
- * <p>Isolation default: a newly paired device is scoped to a new folder
- * named after it, so devices cannot see each other's files until the
- * host widens their path ("" = the whole shared folder).
- *
- * <p>A device's folder is <em>independent of its name</em>: the name
- * only seeds the folder created at pairing time, and nothing afterwards
- * ties the two together. Renaming never moves the folder, so several
- * devices can share one browsing root without a rename stranding the
- * others; the host repoints a device with the GUI's "Folder…" chooser.
+ * <p>Two folders per device, decoupled:
+ * <ul>
+ *   <li>its <em>device folder</em> {@code <dataDir>/<deviceId>}
+ *       (default {@code ~/localReceiver/<deviceId>}), created at
+ *       pairing, holding its bin, upload staging and HTTP safe folder.
+ *       It is keyed by the random id, so it is unique per device and
+ *       never collides with an existing folder or another device;</li>
+ *   <li>its <em>working folder</em> ({@link Device#relPath}), the part
+ *       of the shared folder it browses. Nothing device-specific is
+ *       created there: a new device starts at the shared folder itself
+ *       ("") and the host narrows it with the GUI's "Folder…" chooser
+ *       or the per-subfolder checklist.</li>
+ * </ul>
+ * Neither depends on the device's name, so renaming moves nothing.
  */
 public final class Devices {
     /**
@@ -44,19 +49,26 @@ public final class Devices {
      * access is a deny list over the top-level folders inside the
      * device's subtree: empty sets (the default) mean every subfolder
      * is readable and writable, and folders created later are allowed
-     * automatically.
+     * automatically. Entries match folder names case-insensitively
+     * ({@link FolderNames#key}).
      */
     public record Device(String id, String name, String relPath,
             boolean read, boolean write, boolean browse,
             java.util.Set<String> denyRead, java.util.Set<String> denyWrite) {
         public Device {
-            denyRead = java.util.Collections.unmodifiableSet(new java.util.TreeSet<>(denyRead));
-            denyWrite = java.util.Collections.unmodifiableSet(new java.util.TreeSet<>(denyWrite));
+            denyRead = java.util.Collections.unmodifiableSet(denySet(denyRead));
+            denyWrite = java.util.Collections.unmodifiableSet(denySet(denyWrite));
         }
 
         public Device(String id, String name, String relPath,
                 boolean read, boolean write, boolean browse) {
             this(id, name, relPath, read, write, browse, java.util.Set.of(), java.util.Set.of());
+        }
+
+        private static java.util.Set<String> denySet(java.util.Set<String> names) {
+            java.util.Set<String> set = new java.util.TreeSet<>(FolderNames.ORDER);
+            set.addAll(names);
+            return set;
         }
 
         /** The subtree this device may touch, resolved and normalized. */
@@ -113,15 +125,35 @@ public final class Devices {
     private static final char[] CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789".toCharArray();
 
     private final Path file;
+    private final Path dataDir;
     private final SecureRandom random = new SecureRandom();
     private final Map<String, Device> byId = new LinkedHashMap<>();
     private final Map<String, String> idByTokenHash = new LinkedHashMap<>();
     private final Map<String, Long> pendingCodes = new ConcurrentHashMap<>();
+    /** Rejected names per live code; the code is burned at {@link #MAX_NAME_REJECTS}. */
+    private final Map<String, Integer> nameRejects = new ConcurrentHashMap<>();
+    static final int MAX_NAME_REJECTS = 3;
     private volatile Runnable onChange = () -> { };
+    /** Whether newly paired devices may write; read-only unless the server starts with --new-devices-read-write. */
+    private volatile boolean newDeviceWrite = false;
 
     public Devices(Path configDir) {
+        this(configDir, localreceiver.Config.dataDir());
+    }
+
+    /** @param dataDir where device folders {@code <dataDir>/<deviceId>} are created */
+    public Devices(Path configDir, Path dataDir) {
         this.file = configDir.resolve("devices.properties");
+        this.dataDir = dataDir;
         load();
+    }
+
+    public void setNewDeviceWrite(boolean write) {
+        this.newDeviceWrite = write;
+    }
+
+    public boolean newDeviceWrite() {
+        return newDeviceWrite;
     }
 
     /** GUI refresh hook; called after pair/remove/update on any thread. */
@@ -175,18 +207,19 @@ public final class Devices {
     }
 
     /**
-     * Consumes a pairing code and creates the device, scoped to a new
-     * folder named after the user-assigned name. That folder is chosen
-     * here and here only — a later rename leaves it untouched. The name
+     * Consumes a pairing code and creates the device: read-only unless
+     * {@link #setNewDeviceWrite} is on, its working folder
+     * is the shared folder itself, and its device folder
+     * {@code <dataDir>/<id>} is created (see the class comment). The name
      * is validated BEFORE the code is consumed, so a rejected name does
-     * not burn the code.
+     * not burn the code — until {@value #MAX_NAME_REJECTS} names were
+     * rejected as taken on it, which burns it. Uniqueness is only checked once the code is
+     * known valid, so a caller without a code cannot probe which device
+     * names exist ("taken" vs "code").
      */
     public synchronized PairOutcome pair(String code, String name, Path fileRoot) {
         if (name == null || !NAME.matcher(name).matches()) {
             return new PairOutcome(null, "name");
-        }
-        if (nameTaken(name)) {
-            return new PairOutcome(null, "taken");
         }
         if (code == null) {
             return new PairOutcome(null, "code");
@@ -195,20 +228,33 @@ public final class Devices {
         Long expiry = pendingCodes.get(normalized);
         if (expiry == null || expiry < System.currentTimeMillis()) {
             pendingCodes.remove(normalized);
+            nameRejects.remove(normalized);
             return new PairOutcome(null, "code");
         }
+        if (nameTaken(name)) {
+            // A rejected name does not burn the code at once (typos happen),
+            // but a few do, so a code holder cannot keep probing which
+            // names exist. Burning re-mints via onChange, like a pairing.
+            if (nameRejects.merge(normalized, 1, Integer::sum) >= MAX_NAME_REJECTS) {
+                pendingCodes.remove(normalized);
+                nameRejects.remove(normalized);
+                onChange.run();
+            }
+            return new PairOutcome(null, "taken");
+        }
         pendingCodes.remove(normalized);
+        nameRejects.remove(normalized);
         String id = randomHex(8);
         byte[] tokenBytes = new byte[32];
         random.nextBytes(tokenBytes);
         String token = hex(tokenBytes);
-        Device device = new Device(id, name, name, true, true, true);
+        Device device = new Device(id, name, "", true, newDeviceWrite, true);
         byId.put(id, device);
         idByTokenHash.put(sha256(token), id);
         try {
-            Files.createDirectories(device.resolveRoot(fileRoot));
+            Files.createDirectories(dataDir.resolve(id));
         } catch (IOException ignored) {
-            // created lazily by the first upload if this fails
+            // created lazily (bin, staging, safe) if this fails
         }
         save();
         onChange.run();
@@ -253,6 +299,80 @@ public final class Devices {
             save();
             onChange.run();
         }
+    }
+
+    /**
+     * Whether every device's deny rule on from (a top-level folder of
+     * that device's subtree) can follow it to to, i.e. to stays
+     * top-level in the same subtree.
+     */
+    public synchronized boolean denyCanFollow(Path fileRoot, Path from, Path to) {
+        for (Device d : byId.values()) {
+            Path root = d.resolveRoot(fileRoot);
+            if (hasRuleOn(d, root, from) && !FolderNames.samePath(root, to.getParent())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Whether path is some device's working folder (other than the whole
+     * file root) or a folder containing one; web clients may not delete,
+     * rename or move those, so a device's folder setting never goes stale.
+     */
+    public synchronized boolean isWorkingFolderOrAbove(Path fileRoot, Path path) {
+        for (Device d : byId.values()) {
+            Path root = d.resolveRoot(fileRoot);
+            if (root.equals(fileRoot) || root.getNameCount() < path.getNameCount()) {
+                continue;
+            }
+            Path prefix = root.getRoot().resolve(root.subpath(0, path.getNameCount()));
+            if (FolderNames.samePath(prefix, path)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Renames the deny entries that pointed at from so they name to. */
+    public synchronized void retargetDeny(Path fileRoot, Path from, Path to) {
+        boolean changed = false;
+        String oldName = from.getFileName().toString();
+        String newName = to.getFileName().toString();
+        for (Device d : List.copyOf(byId.values())) {
+            Path root = d.resolveRoot(fileRoot);
+            if (!hasRuleOn(d, root, from) || !FolderNames.samePath(root, to.getParent())) {
+                continue;
+            }
+            byId.put(d.id(), d.withDeny(renamed(d.denyRead(), oldName, newName),
+                    renamed(d.denyWrite(), oldName, newName)));
+            changed = true;
+        }
+        if (changed) {
+            save();
+            onChange.run();
+        }
+    }
+
+    private static boolean hasRuleOn(Device d, Path root, Path folder) {
+        if (!FolderNames.samePath(root, folder.getParent())) {
+            return false;
+        }
+        String name = folder.getFileName().toString();
+        return d.denyRead().contains(name) || d.denyWrite().contains(name);
+    }
+
+    private static java.util.Set<String> renamed(java.util.Set<String> set,
+            String oldName, String newName) {
+        if (!set.contains(oldName)) {
+            return set;
+        }
+        java.util.Set<String> out = new java.util.TreeSet<>(FolderNames.ORDER);
+        out.addAll(set);
+        out.remove(oldName);
+        out.add(newName);
+        return out;
     }
 
     public synchronized void remove(String id) {

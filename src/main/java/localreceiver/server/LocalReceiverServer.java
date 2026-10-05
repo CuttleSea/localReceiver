@@ -65,23 +65,29 @@ public final class LocalReceiverServer {
             http = HttpServer.create(new InetSocketAddress(port), 0);
         }
         this.https = useHttps;
-        http.createContext("/", new WebRootHandler());
-        http.createContext("/files/", new FilesHandler(fileRoot,
+        context("/", new WebRootHandler());
+        SpecialPaths special = new SpecialPaths(fileRoot, localreceiver.Config.dir(),
+                localreceiver.Config.dataDir());
+        context("/files/", new FilesHandler(fileRoot, special,
                 this::isDirBrowseEnabled, this::device));
-        http.createContext("/api/upload/", new UploadHandler(fileRoot, this::device));
-        http.createContext("/api/files/", new FileOpsHandler(fileRoot, this::device));
-        http.createContext("/api/trash", new TrashHandler(fileRoot, this::device));
-        http.createContext("/api/zip", new ZipHandler(fileRoot, this::device));
-        http.createContext("/api/pair", new PairHandler(devices, fileRoot,
+        context("/api/upload/", new UploadHandler(fileRoot, special, this::device));
+        context("/api/files/", new FileOpsHandler(fileRoot, special, devices,
+                this::device));
+        context("/api/trash", new TrashHandler(fileRoot, special, this::device));
+        context("/api/zip", new ZipHandler(fileRoot, special, this::device));
+        context("/api/pair", new PairHandler(devices, fileRoot,
                 this::isPairingRequired, this::isDirBrowseEnabled, this::scheme));
-        http.createContext("/api/session", new PairHandler(devices, fileRoot,
+        context("/api/session", new PairHandler(devices, fileRoot,
                 this::isPairingRequired, this::isDirBrowseEnabled, this::scheme));
-        http.createContext("/qr.png", new QrPngHandler(this::scheme));
-        http.createContext("/ca.crt", new CaCertHandler(TlsSupport.caCertificate(localreceiver.Config.dir())));
-        http.createContext(CaCertHandler.FINGERPRINT_PATH,
-                new CaCertHandler(TlsSupport.caCertificate(localreceiver.Config.dir())));
+        context("/qr.png", new QrPngHandler(this::scheme));
+        context("/ca.crt", new CaCertHandler(TlsSupport.caCertificate(localreceiver.Config.dir())));
         http.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         http.start();
+    }
+
+    /** Registers a route behind {@link SecurityFilter}. */
+    private void context(String path, com.sun.net.httpserver.HttpHandler handler) {
+        http.createContext(path, handler).getFilters().add(SecurityFilter.INSTANCE);
     }
 
     public synchronized boolean isHttps() {

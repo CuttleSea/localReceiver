@@ -74,9 +74,12 @@ is a core design requirement, in both directions (upload and download):
     8–64 chars) hashed from `name|size|lastModified` — it makes resume
     match across page reloads. It is an identifier, not a security
     digest (crypto.subtle is unavailable in insecure LAN contexts).
-  - Server staging lives in `<fileRoot>/.localreceiver-part/<key>/` (hidden
-    from `/files/` listings) so partial transfers survive server
-    restarts and final assembly is an atomic same-filesystem move.
+  - Server staging lives in `<dataDir>/<deviceId>/.uploads/<key>/`
+    (`<dataDir>/.uploads/<key>/` in open mode; dataDir defaults to
+    `~/localReceiver`, overridable with `LOCALRECEIVER_DATA_DIR`), never
+    in the shared folder, so partial transfers survive server restarts.
+    Assembly ends with an atomic rename; when the data dir is on another
+    drive the file is first copied next to the target, then renamed.
   - PWA side: `uploader.js` Web Worker stages the file into OPFS
     (`localreceiver-outgoing/<key>.bin` + `.json`, sync access handles), then
     uploads missing chunks with a small parallel pool (default 3 × 4 MiB)
@@ -100,21 +103,79 @@ is a core design requirement, in both directions (upload and download):
   blocked), and `move?path=&to=` (into target directory, "" = device
   root; " (n)" suffix on conflict; a folder never moves into its own
   subtree). All resolve strictly inside the device subtree — never
-  the root itself, `.localreceiver-part`, or `.localreceiver-trash` — via the
-  upload sanitizers (`FileOpsHandler`). The `/files/` listing
+  the root itself or a `SpecialPaths` location — via the upload
+  sanitizers (`FileOpsHandler`). Delete, rename and move also need read
+  access to the entry's top-level folder, so a read-denied folder can
+  never be carried to an unprotected name. Renaming a top-level folder
+  that carries deny rules for any device renames those rules with it
+  (`Devices.retargetDeny`); moving it anywhere its rules cannot follow
+  (not top-level in the same subtree) is 409. The `/files/` listing
   advertises `fileOps` = the device's write grant.
+- **Plain HTTP is read-only** (`SpecialPaths.plainHttp`/`writable`):
+  over `--http` no client may change the shared folder. A paired
+  device gets a virtual top-level folder `safe` in its root listing,
+  backed by `<dataDir>/<deviceId>/safe` (readable and writable, no deny
+  lists, shadows a real shared folder named `safe`); its uploads land
+  there whatever path the PWA sends, and file operations, moves and
+  trash restore/purge work only inside it (403 elsewhere, including
+  moving out of it). Open mode over HTTP can write nowhere, and
+  `/api/session` reports `write:false`. Over HTTPS none of this applies:
+  there is no virtual folder and the normal per-device grants govern
+  the shared folder. Bin items deleted from safe carry meta
+  `area=safe` and list with an `origPath` prefixed `safe/`.
+  Over HTTPS a device sees its safe folder only when its working folder
+  is its device folder `<dataDir>/<deviceId>` (or inside its safe
+  folder): there `safe` shows as an ordinary folder under the normal
+  grants, `.trash`/`.uploads` stay hidden, and the safe folder itself
+  cannot be renamed, moved or deleted (`SpecialPaths.forbidden(p,
+  device)`/`forbiddenToMove`).
+- **Host names** (`SecurityFilter.knownHost`, on every route): the
+  `Host` header must be `localhost`, this machine's name (short, full,
+  or `name.local`), or an IP literal that is loopback or inside one of
+  this machine's networks. Networks come from the interfaces
+  (address + prefix length), refreshed every 30 s, so the server needs
+  no configured LAN range; names are never resolved via DNS. Anything
+  else is 421 — this is the DNS-rebinding defence. Browsers (Accept
+  text/html) get a short self-contained page explaining to use the IP
+  shown in the window; the requested host name is never echoed.
+- **Cross-site requests and framing** (`SecurityFilter`, on every
+  route): any request other than GET/HEAD whose `Origin` is not the
+  server's own (scheme + `Host`), or that carries `Sec-Fetch-Site:
+  cross-site`, is 403 — this is the CSRF defence, and it covers open
+  mode. Requests without `Origin` (non-browser clients) pass. DNS
+  rebinding is stopped by the host-name check above, not here. Every response
+  carries `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+  `nosniff` and a strict CSP (`SecurityFilter.CSP`: only the server's
+  own scripts/styles/workers, `img-src`/`media-src` also `blob:`/`data:`,
+  `frame-ancestors 'none'`). Handlers that set their own CSP
+  (`FilesHandler` listings and inline views) must keep
+  `frame-ancestors 'none'`. No inline scripts, inline styles or
+  inline event-handler attributes in the webroot — the CSP blocks them.
+- **Working folders are fixed**: no web client may delete, rename or
+  move a folder that is (or contains) any device's working folder
+  (`Devices.isWorkingFolderOrAbove`), so the host's folder settings
+  never go stale.
+- **Off-limits paths** (`SpecialPaths`, checked by every handler and
+  hidden from listings and zips): the config dir (`~/.config/localreceiver`,
+  TLS keys and device tokens — also via symlinks or another spelling;
+  delete/rename/move of a folder above it is refused too), every
+  `.trash`/`.uploads`/`safe` folder in the data dir (when reached
+  through the shared folder), and the pre-v1.1
+  `.localreceiver-trash`/`.localreceiver-part` folders at the file root,
+  which are left in place and blocked.
 - **Recycle bin** (implemented, `TrashHandler`): delete moves entries
-  to `<fileRoot>/.localreceiver-trash/<id>/item/<name>` with a sidecar meta
+  to the device's own bin, `<dataDir>/<deviceId>/.trash/<id>/item/<name>`
+  (`<dataDir>/.trash/...` in open mode; keyed by device id so changing
+  the shared folder or the device's folder never moves it; copied when
+  the data dir is on another drive), with a sidecar meta
   (original path relative to the file root, deleting device id,
   timestamp) — nothing is destroyed until purged. `GET /api/trash`
   lists ONLY the requesting device's items;
   `POST /api/trash/restore?id=` moves back to the original location
   (recreating folders, " (n)" on conflict, 403 when the original
   location is outside the device subtree or write-denied);
-  `POST /api/trash/purge?id=` deletes forever. The trash dir is
-  hidden from listings, excluded from zips, and unreachable as a
-  client path (sanitizePath rejects `.localreceiver-part`/`.localreceiver-trash`
-  segments — this also closes writes into the staging area).
+  `POST /api/trash/purge?id=` deletes forever. Bins are reachable
+  only through `/api/trash`.
 - **Zip downloads** (implemented): `GET /api/zip?path=<dir>` streams a
   recursive zip of a directory (empty path = whole root; staging
   excluded; sanitized/traversal-checked). Read-only, so not gated by
@@ -123,7 +184,7 @@ is a core design requirement, in both directions (upload and download):
   every file endpoint (`/files/*`, `/api/upload/*`, `/api/files/*`,
   `/api/zip`) requires a paired device session — unpaired requesters
   get 401 and the PWA shows only its pairing screen. Only the app
-  shell, `/api/pair`, `/api/session`, `/ca.crt`, `/ca-fingerprint`,
+  shell, `/api/pair`, `/api/session`, `/ca.crt`,
   `/cert-help.html`, and `/qr.png` are open. Model (`localreceiver.server.Devices`):
   - Pairing: the host shows a one-time code (GUI: the "Pair" row of
     the links panel — QR of `scheme://host:port/?pair=CODE`, copy
@@ -132,8 +193,14 @@ is a core design requirement, in both directions (upload and download):
     whenever one is consumed). Scanning the QR prefills the code — the user must then
     assign the device a **name: 1–32 of `[a-z0-9_]`, unique across
     the device list** (`Devices.NAME`). `POST /api/pair?code=&name=`
-    → 400 bad name / 409 taken / 403 bad code; the name is validated
-    BEFORE the code is consumed, so rejects never burn a code. On
+    → 400 bad name / 409 taken / 403 bad code / 429 locked out (five
+    wrong codes from one address — an IPv6 /64 counts as one — within
+    ten minutes lock it out for the rest of that window,
+    `PairHandler.MAX_FAILURES`); the name is validated
+    BEFORE the code is consumed, so rejects never burn a code — except
+    that three names rejected as taken on one code burn it
+    (`Devices.MAX_NAME_REJECTS`; re-minted through `onChange`), so a
+    code holder cannot keep probing which names exist. On
     success the server sets an HttpOnly session cookie (`localreceiver=`,
     SameSite=Lax, Secure over HTTPS) whose SHA-256 is stored in
     `~/.config/localreceiver/devices.properties`. Codes are in-memory,
@@ -151,9 +218,23 @@ is a core design requirement, in both directions (upload and download):
     inside its subtree — a **deny list, so everything (including
     folders created later) is readable and writable by default**.
     Enforced everywhere: listings (JSON and HTML) hide read-denied
-    subfolders at the device root, direct reads/zips of them 403, and
-    uploads/rename/delete into write-denied subfolders 403
+    subfolders at the device root, direct reads/zips of them 404, and
+    uploads/rename/delete into write-denied subfolders 404 — every
+    path a device may not reach (deny-listed, off limits, outside its
+    subtree) answers 404 exactly like a missing one, so responses
+    never reveal what exists
     (`Device.canReadSub`/`canWriteSub` on the first path segment).
+  - Client paths are rewritten to the real on-disk names before any
+    deny check (`FolderNames.canonical`/`existing`, via `toRealPath`
+    for an existing entry), so a Windows 8.3 short name (`PRIVAT~1`)
+    meets the same rules as `Private`.
+  - Names are case-insensitive on every platform (`FolderNames`): two
+    names match when their key matches (NFC, trailing dots/spaces
+    dropped, lower-cased). Deny lists compare by key, client paths
+    resolve each segment to the existing entry with the same key
+    (`FolderNames.canonical`), and a new upload/move/restore whose name
+    matches an existing entry by key gets a " (n)" suffix; mkdir and
+    rename onto such a name are 409.
   - `GET /api/session` → `{pairingRequired, paired, name, path, read,
     write, fileOps, browse}`; the PWA renders its whole UI from this.
   - Per-device grants, host-edited live in the GUI Devices panel:
@@ -162,13 +243,50 @@ is a core design requirement, in both directions (upload and download):
     (listings/downloads/zip), `write` (uploads; AND-ed with the
     global file-management toggle for rename/delete), `browse`
     (AND-ed with the global directory-browse toggle).
-  - Isolation default: a new device is scoped to a new folder named
-    after it, so devices cannot see the host's root or each other
-    until the host widens their path. The name only seeds that folder
-    at pairing time — nothing afterwards couples the two, so devices
-    may be renamed freely and several may point at one shared folder.
+  - New devices pair **read-only** (`Devices.setNewDeviceWrite`,
+    flag `--new-devices-read-write` to pair them read+write); the host
+    grants writing per device. Headless mode reads console commands
+    on stdin (`Main.consoleCommand`): `devices` lists, `remove <name>`
+    revokes at once — the counterpart of the window's Remove button.
+  - Two folders per device, decoupled from each other and from the
+    name: the **device folder** `<dataDir>/<deviceId>` (bin, upload
+    staging, HTTP safe; created at pairing, keyed by the random id so it
+    never collides) and the **working folder** (`relPath`). Pairing
+    creates nothing device-specific in the shared folder: a new device
+    starts at the shared folder itself (`relPath` ""), and the host
+    narrows it with "Folder…" or the subfolder checklist. Devices may
+    be renamed freely and several may point at one shared folder.
+    Terms (use them consistently): the **working folder** is what the
+    device user can view or edit, per its permissions; the host may
+    change it at any time, and the change applies once the current
+    action has finished. Single requests resolve it once. A chunked
+    upload records it at `init` (meta `root`, `UploadHandler.startRoot`)
+    and completes there. A chunked download sends one random
+    `X-Transfer-Id` with all its requests; `FilesHandler` pins that id
+    to the working folder and file at its first request, until every
+    byte was served or 10 idle minutes pass, and other files are never
+    served through the pin. Permissions are always checked as they are
+    now; only the path is pinned. Range requests honour `If-Range`
+    (a stale ETag gets the whole file), and `downloader.js` restarts a
+    download from scratch (at most twice) when any response's ETag
+    differs from the one it started with, so two versions never mix.
+    The **device folder** holds every device-specific folder and can
+    never be reassigned: it is derived from the id, not stored.
+    `Devices(configDir, dataDir)` takes the data dir so tests never
+    create folders in the real `~/localReceiver`; `WorkingFolderTest`
+    covers both switches.
+    Terms (use them consistently): the **working folder** is what the
+    device user can view or edit, per its permissions; the host may
+    change it at any time, and the change applies once the current
+    action has finished (each request resolves it once; a chunked
+    upload records it at `init` in its meta `root` and completes there,
+    `UploadHandler.startRoot`). The **device folder** holds every
+    device-specific folder and can never be reassigned: it is derived
+    from the id, not stored. `Devices(configDir, dataDir)` takes the
+    data dir so tests never create folders in the real
+    `~/localReceiver`; `WorkingFolderTest` covers the mid-upload switch.
     Upload staging is per device
-    (`.localreceiver-part/<deviceId>-<key>/`), so keys never collide across
+    (`<dataDir>/<deviceId>/.uploads/<key>/`), so keys never collide across
     devices and no device can touch another's staging.
   - Open mode (`--open` flag / GUI "Require device pairing" off,
     persisted as config `pairing`): every request resolves to the
@@ -225,7 +343,14 @@ builds the material with the JDK's `keytool` (resolved from
   it once on a device makes every localReceiver server certificate trusted,
   present and future, which also unlocks service workers and PWA
   install. Never regenerate the CA implicitly except when `ca.crt`/
-  `ca.p12` are missing (that would invalidate installed trust).
+  `ca.p12` are missing, or when a readable `ca.crt` lacks the
+  name-constraints extension (a v1.0.0 CA, replaced once); an
+  unreadable one fails loudly instead. The CA carries a critical
+  NameConstraints extension (`TlsSupport.nameConstraintsHex`, DER passed
+  to keytool as `-ext 2.5.29.30:critical=<hex>`) permitting only DNS
+  `localhost` and `TlsSupport.PERMITTED_IPS` (loopback, private,
+  link-local, CGNAT, IPv6 local), so a trusted copy cannot vouch for a
+  public site; server-certificate SANs are filtered to those ranges.
 - **Server certificate**: `keystore.p12`, issued by the CA with SANs
   for `localhost`, `127.0.0.1`, and the LAN IPs present at generation
   time, `eku=serverAuth`, ≤825-day validity (Apple's trust limit).
@@ -237,11 +362,9 @@ builds the material with the JDK's `keytool` (resolved from
   a fixed literal gave anyone who reached the file — a second local
   account, a home-directory backup, a synced dotfile — the CA private
   key, and with it the power to mint certificates every device that
-  installed the CA would trust. Installs predating it are re-encrypted
-  in place on the next HTTPS start (`keytool -storepasswd`); if that
-  migration fails for any reason the old password is kept, because
-  losing the CA would invalidate the trust paired devices already
-  installed. Passwords reach keytool as `-storepass:file`/`-new:file`,
+  installed the CA would trust. ttDrop files are not supported: stores
+  without a `keystore.pass` (ttDrop leftovers) cannot be opened and are
+  replaced by a fresh CA. Passwords reach keytool as `-storepass:file`/`-new:file`,
   never as literal arguments — argv is world-readable.
 - **Owner-only key material**: the config dir (700) and `ca.p12`,
   `keystore.p12`, `keystore.pass` (600) are restricted on POSIX
@@ -250,13 +373,20 @@ builds the material with the JDK's `keytool` (resolved from
   (`TlsSupport.caFingerprint`, upper-case colon-separated SHA-256):
   installing a CA is an irreversible grant of trust, and an attacker
   on the network path during first pairing can substitute their own CA
-  for the one the device downloads. The desktop window prints the
-  fingerprint — a channel that attacker does not control — and the app
-  shell and `cert-help.html` print what the device actually received
-  (`/ca-fingerprint`, plus an `X-CA-Fingerprint-SHA256` header on
-  `/ca.crt`) so the user compares the two before trusting it. Keep
-  both halves: the served value proves nothing on its own, the
-  comparison against the window is the whole mechanism.
+  for the one the device downloads — and rewrite every page the device
+  sees, including the install guide. So the trusted side is only the
+  host: the desktop window (whenever a CA exists) and the headless
+  console print the fingerprint **with the instruction in visible
+  text** to compare it against the device's own certificate details
+  (OS installer / trust-store screen), never against a web page.
+  Nothing serves the fingerprint over the network (no
+  `/ca-fingerprint`, no header): a served value proves nothing.
+  `cert-help.html` says per platform where the device shows the
+  SHA-256 (Windows: `certutil -dump`, since the dialog's Thumbprint is
+  SHA-1; Linux: also check the file holds exactly one certificate,
+  because `openssl x509` reads only the first while
+  `update-ca-certificates` trusts all). Only claim the scope the name
+  constraints actually enforce (local addresses).
 
 Caveats to preserve in any related change: without installing the CA,
 devices tap through the browser interstitial once — a merely-accepted
@@ -314,8 +444,9 @@ https://localhost:<port>/` must succeed with no `-k`.
     clipboard again after `CLIPBOARD_CLEAR_SECONDS`, and only if it
     still holds exactly that text, so clipboard-history tools get a
     short window and the user's later copies are never destroyed.
-  Below the links the window prints the **CA fingerprint** while
-  serving HTTPS; that display is what makes installing the CA on a
+  Below the links the window prints the **CA fingerprint** whenever a
+  CA exists, with the compare-on-the-device instruction as visible
+  text (not a tooltip); that display is what makes installing the CA on a
   device safe (see HTTPS).
 - **GUI theming — the `jacross` package** (Tier 0 subset of the
   JaCross design system): a token layer (`ColorRole`/`Tokens`/`Themes`)
@@ -559,18 +690,28 @@ control. Run it for any change under `src/main/java/jacross/`.
 
 Browser tests live in `tests/browser/` (plain Node scripts, exit 0/1):
 upload, upload-resume, download-resume, folder-upload, cancel,
-fileops, zip-download, inline-view, dir-browse, pairing, and
-subdir-acl `.test.mjs` files; shared setup in `lib.mjs`, orchestrated
+fileops, zip-download, inline-view, dir-browse, pairing, subdir-acl,
+http-readonly and safe-https `.test.mjs` files (`tests/server/` holds
+the in-process Java tests, including `WorkingFolderTest`, which needs
+throwaway `LOCALRECEIVER_CONFIG_DIR`/`LOCALRECEIVER_DATA_DIR`); shared setup in `lib.mjs`, orchestrated
 by `run.sh` (starts a headless `--open` server on a temp dir, waits
 for readiness — never a fixed sleep, the first HTTPS start generates
-TLS material — and runs them all; `LOCALRECEIVER_SCHEME=https` reruns the
-suite over TLS). Upload tests must confirm the queue (`#upload-button`)
+TLS material — and runs them all over HTTPS by default, since plain
+HTTP is read-only; `LOCALRECEIVER_SCHEME=http` runs them over HTTP, where
+the write tests are expected to fail). `run.sh` also points
+`LOCALRECEIVER_DATA_DIR` and `LOCALRECEIVER_CONFIG_DIR` at temp dirs,
+and the self-spawning tests do the same, so bins, staging, the TLS CA
+and devices never touch the real `~/localReceiver` or
+`~/.config/localreceiver`. Upload tests must confirm the queue (`#upload-button`)
 after `setInputFiles` — nothing uploads unconfirmed. Tests covering
 default postures (dir-browse, pairing) spawn their own servers with
 the flags they need — pairing uses `LOCALRECEIVER_CONFIG_DIR` so test
 devices never touch the real config. They need Node.js, the `playwright`
 package, and Chromium — deliberately not in the pixi env to keep it
-lean. Run every one of them before finishing a batch that touches
+lean. Run them through pixi (`pixi run sh tests/browser/run.sh`, or
+`pixi run node <test>`), so the server uses the pixi JDK; with
+Playwright installed outside the repo, point `PLAYWRIGHT_MODULE` at its
+`index.mjs`. Run every one of them before finishing a batch that touches
 transfer code, and add a test when adding a transfer behavior.
 
 ```sh
@@ -669,7 +810,8 @@ localReceiver/
     │       ├── FileOpsHandler.java# /api/files/: delete, rename, mkdir, move
     │       ├── TrashHandler.java  # /api/trash: recycle bin, restore, purge
     │       ├── QrPngHandler.java  # /qr.png: QR of the site URL
-    │       ├── CaCertHandler.java # /ca.crt + /ca-fingerprint
+    │       ├── CaCertHandler.java # /ca.crt
+│       ├── SecurityFilter.java# Origin check + anti-framing/CSP headers
     │       └── TlsSupport.java    # CA + server cert generation
     └── resources/
         ├── jacross/
@@ -687,9 +829,6 @@ localReceiver/
             ├── app.js                # UI, browser, transfer orchestration
             ├── uploader.js           # upload worker (OPFS staging)
             ├── downloader.js         # download worker (OPFS staging)
-            ├── cert-check.js         # shows the CA fingerprint to compare
-            │                         #   (name must stay clear of the
-            │                         #   /ca-fingerprint context prefix)
             ├── sw.js                 # service worker (shell cache only)
             ├── manifest.webmanifest  # PWA manifest
             ├── icon.svg              # app icon (light bg, navy glyph)

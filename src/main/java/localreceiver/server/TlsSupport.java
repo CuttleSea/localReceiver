@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.KeyStore;
@@ -30,10 +29,13 @@ import javax.net.ssl.SSLContext;
  *
  * <p>Because installing a CA is an irreversible grant of trust, the
  * certificate's SHA-256 fingerprint ({@link #caFingerprint}) is shown
- * in the desktop window and served at {@code /ca-fingerprint} so the
- * user can compare the two before trusting it. The window is a channel
- * an on-path network attacker does not control, so a substituted CA
- * shows a mismatching fingerprint.
+ * in the desktop window (and the headless console) for the user to
+ * compare against the device's own certificate details. The CA also
+ * carries a critical name-constraints extension ({@link #PERMITTED_IPS},
+ * DNS name {@code localhost}), so even a trusted copy can only vouch for
+ * local addresses, never for a public website. A CA from before the
+ * constraints (v1.0.0) is replaced once on the next HTTPS start; devices
+ * must then install the new one.
  *
  * <p>The server certificate ({@code keystore.p12}) is issued by the CA
  * with SANs for {@code localhost}, {@code 127.0.0.1}, and the LAN IPs
@@ -43,19 +45,28 @@ import javax.net.ssl.SSLContext;
  *
  * <p>All generation happens through the JDK's {@code keytool}
  * (resolved via {@code java.home}). The keystore password is random
- * per installation, kept in {@code keystore.pass} beside the stores;
- * installations predating it are re-encrypted on the next HTTPS start.
+ * per installation, kept in {@code keystore.pass} beside the stores.
  * Passwords reach keytool as {@code -storepass:file}, never as a
  * literal argument — a process's argv is readable by any other local
  * user. Every file holding key material is restricted to its owner
  * where the filesystem supports it (POSIX; a no-op on Windows).
  */
 public final class TlsSupport {
-    /** Pre-v0.24 fixed password; kept only to migrate older keystores. */
-    private static final String LEGACY_PASS = "ttdrop";
     private static final String PASS_FILE = "keystore.pass";
     private static final String CA_ALIAS = "localreceiver-ca";
     private static final String SERVER_ALIAS = "localreceiver";
+
+    /**
+     * Address ranges the CA may vouch for: loopback, private, link-local
+     * and carrier-grade NAT (VPNs such as Tailscale) — every address a
+     * LAN server certificate can carry, and no public one.
+     */
+    static final String[] PERMITTED_IPS = {
+        "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+        "169.254.0.0/16", "100.64.0.0/10",
+        "::1/128", "fc00::/7", "fe80::/10", "fec0::/10",
+    };
+    private static final String NAME_CONSTRAINTS_OID = "2.5.29.30";
 
     private TlsSupport() {
     }
@@ -98,6 +109,11 @@ public final class TlsSupport {
         Path caCert = caCertificate(configDir);
         Path keystore = configDir.resolve("keystore.p12");
         Path passFile = storePassFile(configDir, caStore, keystore);
+        if (lacksNameConstraints(caCert)) {
+            // A pre-constraints CA could vouch for any website: replace it.
+            Files.deleteIfExists(caStore);
+            Files.deleteIfExists(caCert);
+        }
         if (!Files.exists(caStore) || !Files.exists(caCert)) {
             // No CA (first https run, or pre-CA layout): start fresh so
             // the server certificate is always CA-issued.
@@ -125,14 +141,9 @@ public final class TlsSupport {
 
     /**
      * Resolves the file holding the keystore password, creating it on
-     * first use with a random 128-bit secret.
-     *
-     * <p>Installations predating the random password hold stores
-     * encrypted with {@link #LEGACY_PASS}. Those are re-encrypted in
-     * place before the new password is recorded, so a failure at any
-     * point leaves the old, working password in force rather than
-     * stranding the CA — losing it would invalidate the trust every
-     * paired device has already installed.
+     * first use with a random 128-bit secret. Stores without a password
+     * file (left from ttDrop, which is not supported) cannot be opened,
+     * so they are removed and a fresh CA is generated.
      */
     private static synchronized Path storePassFile(Path configDir, Path caStore, Path keystore)
             throws IOException {
@@ -143,36 +154,11 @@ public final class TlsSupport {
             restrictPermissions(passFile, "rw-------");
             return passFile;
         }
-        Path fresh = configDir.resolve(PASS_FILE + ".new");
-        writePass(fresh, randomPass());
-        Path legacy = configDir.resolve(PASS_FILE + ".legacy");
-        try {
-            List<Path> existing = new ArrayList<>();
-            for (Path store : List.of(caStore, keystore)) {
-                if (Files.exists(store)) {
-                    existing.add(store);
-                }
-            }
-            if (!existing.isEmpty()) {
-                writePass(legacy, LEGACY_PASS);
-                for (Path store : existing) {
-                    if (!changeStorePass(store, legacy, fresh)) {
-                        // Already migrated with the record lost, or an
-                        // unreadable store: keep what works today.
-                        writePass(passFile, LEGACY_PASS);
-                        return passFile;
-                    }
-                }
-            }
-            Files.move(fresh, passFile, StandardCopyOption.REPLACE_EXISTING);
-            restrictPermissions(passFile, "rw-------");
-            restrictPermissions(caStore, "rw-------");
-            restrictPermissions(keystore, "rw-------");
-            return passFile;
-        } finally {
-            Files.deleteIfExists(fresh);
-            Files.deleteIfExists(legacy);
-        }
+        Files.deleteIfExists(caStore);
+        Files.deleteIfExists(caCertificate(configDir));
+        Files.deleteIfExists(keystore);
+        writePass(passFile, randomPass());
+        return passFile;
     }
 
     private static String randomPass() {
@@ -192,19 +178,6 @@ public final class TlsSupport {
 
     private static char[] readPass(Path passFile) throws IOException {
         return Files.readString(passFile, StandardCharsets.UTF_8).trim().toCharArray();
-    }
-
-    /** {@code keytool -storepasswd}; false when the store could not be re-encrypted. */
-    private static boolean changeStorePass(Path store, Path oldPass, Path newPass) {
-        try {
-            keytool("-storepasswd",
-                    "-keystore", store.toString(),
-                    "-storepass:file", oldPass.toString(),
-                    "-new:file", newPass.toString());
-            return true;
-        } catch (IOException e) {
-            return false;
-        }
     }
 
     /**
@@ -238,6 +211,7 @@ public final class TlsSupport {
                 "-dname", "CN=localReceiver CA (" + user + ")",
                 "-ext", "bc:c=ca:true",
                 "-ext", "ku:c=keyCertSign,cRLSign",
+                "-ext", NAME_CONSTRAINTS_OID + ":critical=" + nameConstraintsHex(),
                 "-storetype", "PKCS12",
                 "-keystore", caStore.toString(),
                 "-storepass:file", passFile.toString());
@@ -254,7 +228,11 @@ public final class TlsSupport {
             Path passFile) throws IOException {
         StringBuilder san = new StringBuilder("SAN=dns:localhost,ip:127.0.0.1");
         for (String ip : LocalReceiverServer.lanAddresses()) {
-            san.append(",ip:").append(ip);
+            // Only addresses the CA's name constraints permit; anything
+            // else would make clients reject the whole certificate.
+            if (permitted(ip)) {
+                san.append(",ip:").append(ip);
+            }
         }
         Path csr = configDir.resolve("server.csr");
         Path signed = configDir.resolve("server.crt");
@@ -297,6 +275,110 @@ public final class TlsSupport {
             Files.deleteIfExists(csr);
             Files.deleteIfExists(signed);
         }
+    }
+
+    /**
+     * True only for a readable CA certificate without the
+     * name-constraints extension. An unreadable one is not "lacking":
+     * it must fail loudly later rather than be silently replaced.
+     */
+    static boolean lacksNameConstraints(Path caCert) {
+        if (!Files.exists(caCert)) {
+            return false;
+        }
+        try (InputStream in = Files.newInputStream(caCert)) {
+            var cert = (java.security.cert.X509Certificate)
+                    CertificateFactory.getInstance("X.509").generateCertificate(in);
+            return cert.getExtensionValue(NAME_CONSTRAINTS_OID) == null;
+        } catch (IOException | java.security.GeneralSecurityException e) {
+            return false;
+        }
+    }
+
+    /** Whether an IP literal falls inside {@link #PERMITTED_IPS}. */
+    static boolean permitted(String ip) {
+        try {
+            byte[] addr = java.net.InetAddress.getByName(ip).getAddress();
+            for (String range : PERMITTED_IPS) {
+                byte[][] net = cidr(range);
+                if (net[0].length != addr.length) {
+                    continue;
+                }
+                boolean inside = true;
+                for (int i = 0; i < addr.length && inside; i++) {
+                    inside = (addr[i] & net[1][i]) == (net[0][i] & net[1][i]);
+                }
+                if (inside) {
+                    return true;
+                }
+            }
+        } catch (java.net.UnknownHostException e) {
+            return false;
+        }
+        return false;
+    }
+
+    /** A CIDR range as {address, mask} bytes. */
+    private static byte[][] cidr(String range) throws java.net.UnknownHostException {
+        int slash = range.indexOf('/');
+        byte[] addr = java.net.InetAddress.getByName(range.substring(0, slash)).getAddress();
+        int prefix = Integer.parseInt(range.substring(slash + 1));
+        byte[] mask = new byte[addr.length];
+        for (int i = 0; i < mask.length; i++) {
+            int bits = Math.max(0, Math.min(8, prefix - 8 * i));
+            mask[i] = (byte) (bits == 0 ? 0 : 0xff << (8 - bits));
+        }
+        return new byte[][] {addr, mask};
+    }
+
+    /**
+     * DER of NameConstraints with only permittedSubtrees (RFC 5280
+     * 4.2.1.10): dNSName {@code localhost} and an iPAddress (address +
+     * mask) per {@link #PERMITTED_IPS}, hex-encoded for keytool's
+     * {@code -ext OID:critical=hex}.
+     */
+    static String nameConstraintsHex() {
+        java.io.ByteArrayOutputStream subtrees = new java.io.ByteArrayOutputStream();
+        try {
+            // GeneralSubtree ::= SEQUENCE { base GeneralName } (minimum 0 by default)
+            subtrees.write(der(0x30, der(0x82, "localhost".getBytes(StandardCharsets.US_ASCII))));
+            for (String range : PERMITTED_IPS) {
+                byte[][] net = cidr(range);
+                byte[] value = new byte[net[0].length * 2];
+                for (int i = 0; i < net[0].length; i++) {
+                    value[i] = (byte) (net[0][i] & net[1][i]);
+                }
+                System.arraycopy(net[1], 0, value, net[0].length, net[1].length);
+                subtrees.write(der(0x30, der(0x87, value)));
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        byte[] constraints = der(0x30, der(0xA0, subtrees.toByteArray()));
+        StringBuilder hex = new StringBuilder();
+        for (byte b : constraints) {
+            hex.append(String.format("%02X", b));
+        }
+        return hex.toString();
+    }
+
+    /** One DER TLV. */
+    private static byte[] der(int tag, byte[] value) {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        out.write(tag);
+        int len = value.length;
+        if (len < 0x80) {
+            out.write(len);
+        } else if (len < 0x100) {
+            out.write(0x81);
+            out.write(len);
+        } else {
+            out.write(0x82);
+            out.write(len >> 8);
+            out.write(len & 0xff);
+        }
+        out.writeBytes(value);
+        return out.toByteArray();
     }
 
     private static void keytool(String... args) throws IOException {
