@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#2563eb">
-<title>ttDrop</title>
+<title>localReceiver</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
@@ -12,14 +12,14 @@
 </head>
 <body>
 <header>
-<h1>ttDrop</h1>
+<h1>localReceiver</h1>
 <p id="conn-status" class="muted">Connecting…</p>
 </header>
 <main>
 <section id="pair-section" hidden>
 <h2>Pair this device</h2>
 <p class="muted">
-Ask the ttDrop host for a pairing code — scan its QR code with this device's camera,
+Ask the localReceiver host for a pairing code — scan its QR code with this device's camera,
 or type the code below. Choose a name for this device: lower-case letters, digits and _
 only, and it must not already be in use.
 </p>
@@ -87,20 +87,20 @@ Deleted items wait here until restored or removed forever.
 <img id="qr-img" alt="QR code linking to this page" width="232" height="232">
 </details>
 <p class="muted">
-<a href="/cert-help.html">Install the ttDrop certificate</a>
+<a href="/cert-help.html">Install the localReceiver certificate</a>
 to remove browser warnings and enable app install on this device.
 </p>
 <p class="muted" id="ca-fingerprint-note" hidden>
 Certificate SHA-256: <code id="ca-fingerprint"></code><br>
-Only install it if this matches the fingerprint shown in the ttDrop
+Only install it if this matches the fingerprint shown in the localReceiver
 window on the host computer.
 </p>
 <p class="muted">
 Privacy: this app uses no external JavaScript libraries, no frameworks,
 no external web fonts, and no external APIs beyond those built into your
-browser. Everything is served by this ttDrop server on your own network.
+browser. Everything is served by this localReceiver server on your own network.
 </p>
-<p class="muted">ttDrop — local file transfer. GPL-3.0.</p>
+<p class="muted">localReceiver — local file transfer. GPL-3.0.</p>
 </footer>
 <script src="/cert-check.js"></script>
 <script src="/app.js"></script>

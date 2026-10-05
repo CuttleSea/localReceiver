@@ -1,4 +1,4 @@
-# ttDrop
+# localReceiver
 
 **[English](#english)** | **[繁體中文](#繁體中文)**
 
@@ -9,7 +9,7 @@
 Local file transfer between your devices — no cloud, no accounts, no
 internet required.
 
-ttDrop is a small **Java server app** (Windows/macOS/Linux) plus a
+localReceiver is a small **Java server app** (Windows/macOS/Linux) plus a
 **browser web app (PWA)** (PC/Mac/iPhone/iPad/Android). Start the
 server on one computer; every other device on your network opens a web
 page that can **send files to** and **download files from** that
@@ -19,17 +19,17 @@ dropped connections and page reloads.
 ### Quick start
 
 1. Get the jar from the
-   [latest release](https://github.com/SotongDJ/ttDrop/releases/latest)
+   [latest release](https://github.com/SotongDJ/localReceiver/releases/latest)
    (needs Java 25 or newer), or build it yourself — see
    [Development](#development). Release jars carry the version in
-   their name: `ttdrop_v{x}r{y}n{z}.jar` is version v{x}.{y}.{z}
-   (e.g. `ttdrop_v0r17n0.jar` is v0.17.0).
+   their name: `localreceiver_v{x}r{y}n{z}.jar` is version v{x}.{y}.{z}
+   (e.g. `localreceiver_v0r17n0.jar` is v0.17.0).
 2. Copy the jar into the folder you want to share, e.g.
    `N:\the\target\path` or `/the/target/path`. That folder becomes the
    file area: received files land there, and files placed there are
    downloadable.
-3. Run the jar (double-click, or `java -jar ttdrop.jar`). Press
-   **Start** in the window — or run `java -jar ttdrop.jar --headless`
+3. Run the jar (double-click, or `java -jar localreceiver.jar`). Press
+   **Start** in the window — or run `java -jar localreceiver.jar --headless`
    on machines without a display (`--port <n>` to override the port,
    default 4646; `--http` to disable TLS; `--browse` to enable
    directory listing pages).
@@ -46,13 +46,13 @@ dropped connections and page reloads.
 5. On the paired device, open the URL the window shows — click it on
    the server to open it in your own browser, or scan the QR code it
    displays (`https://<your-ip>:4646/`). Accept the one-time
-   certificate warning, or better: tap **Install the ttDrop
+   certificate warning, or better: tap **Install the localReceiver
    certificate** in the page footer (also at `/ca.crt`) and trust it —
-   ttDrop generates its own per-user certificate authority, so
+   localReceiver generates its own per-user certificate authority, so
    installing that one certificate removes the warnings on every
    future session and lets the page install as an app. **Before you
    install it, check that the SHA-256 fingerprint the page shows
-   matches the one in the ttDrop window** — if they differ, something
+   matches the one in the localReceiver window** — if they differ, something
    on the network is impersonating the server. Nothing leaves your
    network. Drop files onto the page to send; tap listed files to
    download.
@@ -71,7 +71,7 @@ dropped connections and page reloads.
 - **Chunked, parallel, resumable transfers** in both directions:
   interrupted uploads and downloads continue from the chunks already
   done — across page reloads (staged in the browser's private storage,
-  OPFS) and across server restarts (staged in a hidden `.ttdrop-part/`
+  OPFS) and across server restarts (staged in a hidden `.localreceiver-part/`
   folder). Any transfer can be cancelled with full clean-up.
 - **Folder uploads**: pick a folder or drag one onto the page; the
   directory structure is recreated on the server. Folders in the list
@@ -108,15 +108,15 @@ dropped connections and page reloads.
 
 ### Notes
 
-- Configuration is stored in `~/.config/ttdrop/`, never in the shared
+- Configuration is stored in `~/.config/localreceiver/`, never in the shared
   folder.
 - On plain HTTP, browsers only grant OPFS/service-worker features to
   `localhost`; other devices still transfer files, but without
   reload-resume or app install. See `AGENT.md` for details.
-- On Linux, ttDrop follows GNOME's display and text scaling
+- On Linux, localReceiver follows GNOME's display and text scaling
   automatically. If the window still looks too small or too large,
   set the scale yourself:
-  `java -Dsun.java2d.uiScale=1.5 -jar ttdrop_v0r20n0.jar`
+  `java -Dsun.java2d.uiScale=1.5 -jar localreceiver_v0r20n0.jar`
   (any factor works — 1.25, 1.5, 2).
 
 ### Development
@@ -125,7 +125,7 @@ The toolchain is managed by [pixi](https://pixi.sh) — it provides the
 JDK, nothing else needs installing:
 
 ```sh
-pixi run build   # produces dist/ttdrop.jar
+pixi run build   # produces dist/localreceiver.jar
 pixi run run     # build + run
 sh tests/browser/run.sh   # end-to-end browser tests (needs Node + Playwright)
 ```
@@ -135,13 +135,13 @@ sh tests/browser/run.sh   # end-to-end browser tests (needs Node + Playwright)
   human or LLM.
 - [`CHANGELOG`](CHANGELOG) — the changelog, and the source of truth
   for the notes on the
-  [releases page](https://github.com/SotongDJ/ttDrop/releases);
+  [releases page](https://github.com/SotongDJ/localReceiver/releases);
   releases are cut by the manually triggered `release` GitHub Actions
   workflow.
 
 ### Licence
 
-ttDrop is free software, released under the
+localReceiver is free software, released under the
 [GNU General Public License v3.0](LICENSE).
 
 ---
@@ -150,7 +150,7 @@ ttDrop is free software, released under the
 
 在你的裝置之間直接傳輸檔案——不經雲端、不用帳號、不需網際網路。
 
-ttDrop 由一個小巧的 **Java 伺服器程式**（Windows/macOS/Linux）加上
+localReceiver 由一個小巧的 **Java 伺服器程式**（Windows/macOS/Linux）加上
 **瀏覽器網頁應用程式（PWA）**（PC/Mac/iPhone/iPad/Android）組成。
 在一台電腦上啟動伺服器，網路上的其他裝置開啟網頁後即可
 **傳送檔案至**該電腦、也可**從該電腦下載檔案**——採用分塊、並行、
@@ -158,16 +158,16 @@ ttDrop 由一個小巧的 **Java 伺服器程式**（Windows/macOS/Linux）加�
 
 ### 快速開始
 
-1. 從[最新發行版本](https://github.com/SotongDJ/ttDrop/releases/latest)
+1. 從[最新發行版本](https://github.com/SotongDJ/localReceiver/releases/latest)
    下載 jar 檔（需要 Java 25 或更新版本），或自行建置——見
-   [開發](#開發)。發行版 jar 檔名帶有版本：`ttdrop_v{x}r{y}n{z}.jar`
-   即 v{x}.{y}.{z} 版（例如 `ttdrop_v0r17n0.jar` 是 v0.17.0）。
+   [開發](#開發)。發行版 jar 檔名帶有版本：`localreceiver_v{x}r{y}n{z}.jar`
+   即 v{x}.{y}.{z} 版（例如 `localreceiver_v0r17n0.jar` 是 v0.17.0）。
 2. 將 jar 檔複製到你想分享的資料夾，例如
    `N:\the\target\path` 或 `/the/target/path`。該資料夾即為檔案區：
    收到的檔案會存放於此，放在裡面的檔案也能被下載。
-3. 執行 jar（雙擊，或 `java -jar ttdrop.jar`），在視窗中按下
+3. 執行 jar（雙擊，或 `java -jar localreceiver.jar`），在視窗中按下
    **Start**——沒有螢幕的機器可執行
-   `java -jar ttdrop.jar --headless`（`--port <n>` 可更改連接埠，
+   `java -jar localreceiver.jar --headless`（`--port <n>` 可更改連接埠，
    預設 4646；`--http` 停用 TLS；`--browse` 可啟用目錄列表頁面）。
 4. **為每台裝置配對**：在伺服器視窗點選 **Pair device…**，讓另一台
    裝置掃描 QR Code（或開啟網站後輸入一次性配對碼），並為裝置取一個
@@ -180,10 +180,10 @@ ttDrop 由一個小巧的 **Java 伺服器程式**（Windows/macOS/Linux）加�
 5. 在配對好的裝置上開啟視窗顯示的網址——在伺服器端點選網址即可用
    本機預設瀏覽器開啟，或掃描視窗顯示的 QR Code
    （`https://<你的-ip>:4646/`）。接受一次性的憑證警告，或更好的做法：
-   點選頁尾的 **Install the ttDrop certificate**（亦可於 `/ca.crt`
-   取得）並信任它——ttDrop 會產生專屬於使用者的憑證授權單位（CA），
+   點選頁尾的 **Install the localReceiver certificate**（亦可於 `/ca.crt`
+   取得）並信任它——localReceiver 會產生專屬於使用者的憑證授權單位（CA），
    安裝這一張憑證即可移除日後所有工作階段的警告，並允許將頁面安裝為
-   應用程式。**安裝前請先核對網頁顯示的 SHA-256 憑證指紋與 ttDrop
+   應用程式。**安裝前請先核對網頁顯示的 SHA-256 憑證指紋與 localReceiver
    視窗中顯示的是否相同**——若不相同，表示網路上可能有人正在冒充這台
    伺服器。一切都不會離開你的網路。將檔案拖放到頁面即可傳送；
    點選清單中的檔案即可下載。
@@ -199,7 +199,7 @@ ttDrop 由一個小巧的 **Java 伺服器程式**（Windows/macOS/Linux）加�
   裝置共用同一個資料夾，重新命名不會影響它。
 - **分塊、並行、可續傳的雙向傳輸**：中斷的上傳與下載會從已完成的
   分塊接續——頁面重新載入（暫存於瀏覽器私有儲存空間 OPFS）與
-  伺服器重啟（暫存於隱藏的 `.ttdrop-part/` 資料夾）皆可續傳。
+  伺服器重啟（暫存於隱藏的 `.localreceiver-part/` 資料夾）皆可續傳。
   任何傳輸都能取消並完整清除暫存。
 - **資料夾上傳**：選取或拖放整個資料夾，伺服器會重建其目錄結構。
   清單中的資料夾可打包為 zip 壓縮檔下載。
@@ -231,13 +231,13 @@ ttDrop 由一個小巧的 **Java 伺服器程式**（Windows/macOS/Linux）加�
 
 ### 注意事項
 
-- 設定儲存於 `~/.config/ttdrop/`，絕不會存放在分享的資料夾內。
+- 設定儲存於 `~/.config/localreceiver/`，絕不會存放在分享的資料夾內。
 - 在純 HTTP 之下，瀏覽器只對 `localhost` 開放 OPFS 與 service
   worker 功能；其他裝置仍可傳輸檔案，但無法在重新載入後續傳、
   也無法安裝為應用程式。詳見 `AGENT.md`。
-- 在 Linux 上，ttDrop 會自動跟隨 GNOME 的顯示與文字縮放設定。
+- 在 Linux 上，localReceiver 會自動跟隨 GNOME 的顯示與文字縮放設定。
   若視窗仍太小或太大，可自行指定縮放比例：
-  `java -Dsun.java2d.uiScale=1.5 -jar ttdrop_v0r20n0.jar`
+  `java -Dsun.java2d.uiScale=1.5 -jar localreceiver_v0r20n0.jar`
   （任何倍率皆可——1.25、1.5、2）。
 
 ### 開發
@@ -246,7 +246,7 @@ ttDrop 由一個小巧的 **Java 伺服器程式**（Windows/macOS/Linux）加�
 不需另外安裝任何東西：
 
 ```sh
-pixi run build   # 產生 dist/ttdrop.jar
+pixi run build   # 產生 dist/localreceiver.jar
 pixi run run     # 建置並執行
 sh tests/browser/run.sh   # 端對端瀏覽器測試（需要 Node 與 Playwright）
 ```
@@ -254,11 +254,11 @@ sh tests/browser/run.sh   # 端對端瀏覽器測試（需要 Node 與 Playwrigh
 - [`AGENT.md`](AGENT.md)——維護者指南：架構、硬性限制、傳輸協定、
   工作流程規範。無論是人或 LLM，請先閱讀。
 - [`CHANGELOG`](CHANGELOG)——變更紀錄，同時是
-  [發行頁面](https://github.com/SotongDJ/ttDrop/releases)說明文字的
+  [發行頁面](https://github.com/SotongDJ/localReceiver/releases)說明文字的
   唯一來源；發行版本由手動觸發的 `release` GitHub Actions 工作流程
   建立。
 
 ### 授權條款
 
-ttDrop 是自由軟體，依
+localReceiver 是自由軟體，依
 [GNU 通用公眾授權條款第三版（GPL-3.0）](LICENSE)發布。

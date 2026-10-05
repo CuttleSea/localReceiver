@@ -1,6 +1,6 @@
 #!/bin/sh
-# Runs all ttDrop browser tests against a freshly started server.
-# Requires: dist/ttdrop.jar built (pixi run build), Node.js, playwright,
+# Runs all localReceiver browser tests against a freshly started server.
+# Requires: dist/localreceiver.jar built (pixi run build), Node.js, playwright,
 # and Chromium. See lib.mjs for the environment variables; in Claude
 # cloud sessions:
 #   PLAYWRIGHT_MODULE=/opt/node22/lib/node_modules/playwright/index.mjs
@@ -8,11 +8,11 @@
 set -eu
 
 REPO_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-PORT="${TTDROP_PORT:-4655}"
-SERVE_DIR="${TTDROP_DIR:-$(mktemp -d)}"
-# TTDROP_SCHEME=https runs the whole suite over TLS (self-signed cert,
+PORT="${LOCALRECEIVER_PORT:-4655}"
+SERVE_DIR="${LOCALRECEIVER_DIR:-$(mktemp -d)}"
+# LOCALRECEIVER_SCHEME=https runs the whole suite over TLS (self-signed cert,
 # accepted via ignoreHTTPSErrors in the tests). Default http.
-SCHEME="${TTDROP_SCHEME:-http}"
+SCHEME="${LOCALRECEIVER_SCHEME:-http}"
 SCHEME_FLAG="--http"
 [ "$SCHEME" = "https" ] && SCHEME_FLAG="--https"
 
@@ -24,7 +24,7 @@ cd "$SERVE_DIR"
 # --open: pairing is on by default; pairing.test.mjs covers it with
 # its own server, the rest of the suite runs in open mode. File
 # management is always on (per-device permissions govern it).
-"$JAVA" -jar "$REPO_ROOT/dist/ttdrop.jar" --headless --port "$PORT" "$SCHEME_FLAG" --open &
+"$JAVA" -jar "$REPO_ROOT/dist/localreceiver.jar" --headless --port "$PORT" "$SCHEME_FLAG" --open &
 SERVER_PID=$!
 trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
 # Wait for readiness instead of a fixed sleep: the first HTTPS start
@@ -39,6 +39,6 @@ cd "$REPO_ROOT/tests/browser"
 FAIL=0
 for test in upload.test.mjs upload-resume.test.mjs download-resume.test.mjs folder-upload.test.mjs cancel.test.mjs fileops.test.mjs zip-download.test.mjs inline-view.test.mjs dir-browse.test.mjs pairing.test.mjs subdir-acl.test.mjs; do
     echo "=== $test ==="
-    TTDROP_PORT="$PORT" TTDROP_DIR="$SERVE_DIR" node "$test" || FAIL=1
+    LOCALRECEIVER_PORT="$PORT" LOCALRECEIVER_DIR="$SERVE_DIR" node "$test" || FAIL=1
 done
 exit "$FAIL"

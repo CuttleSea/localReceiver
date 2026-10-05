@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-const src = join(tmpdir(), `ttdrop-folder-${process.pid}`);
+const src = join(tmpdir(), `localreceiver-folder-${process.pid}`);
 rmSync(src, { recursive: true, force: true });
 mkdirSync(join(src, "sub", "deeper"), { recursive: true });
 const fileA = randomBytes(5 * 1024 * 1024); // multi-chunk

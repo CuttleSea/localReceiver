@@ -1,8 +1,8 @@
-/* Shared setup for ttDrop browser tests.
+/* Shared setup for localReceiver browser tests.
  *
  * Environment:
- *   TTDROP_PORT   port of a running ttDrop server (required)
- *   TTDROP_DIR    the server's file root on disk (required)
+ *   LOCALRECEIVER_PORT   port of a running localReceiver server (required)
+ *   LOCALRECEIVER_DIR    the server's file root on disk (required)
  *   PLAYWRIGHT_MODULE  import specifier for playwright
  *                      (default "playwright"; in Claude cloud sessions use
  *                      "/opt/node22/lib/node_modules/playwright/index.mjs")
@@ -23,12 +23,12 @@ export async function launchBrowser() {
  * must be accepted when running the suite over HTTPS. */
 export const CONTEXT_OPTIONS = { ignoreHTTPSErrors: true };
 
-export const PORT = process.env.TTDROP_PORT || "4646";
-export const SCHEME = process.env.TTDROP_SCHEME || "http";
-export const SERVE_DIR = process.env.TTDROP_DIR;
+export const PORT = process.env.LOCALRECEIVER_PORT || "4646";
+export const SCHEME = process.env.LOCALRECEIVER_SCHEME || "http";
+export const SERVE_DIR = process.env.LOCALRECEIVER_DIR;
 export const BASE = `${SCHEME}://localhost:${PORT}`;
 
 if (!SERVE_DIR) {
-  console.error("TTDROP_DIR must point at the running server's file root");
+  console.error("LOCALRECEIVER_DIR must point at the running server's file root");
   process.exit(2);
 }

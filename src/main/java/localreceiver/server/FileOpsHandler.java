@@ -1,4 +1,4 @@
-package ttdrop.server;
+package localreceiver.server;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -28,7 +28,7 @@ import java.util.Map;
  * </ul>
  *
  * <p>Everything resolves strictly inside the device's subtree (403
- * otherwise) and refuses the root itself and the {@code .ttdrop-part}
+ * otherwise) and refuses the root itself and the {@code .localreceiver-part}
  * staging area.
  */
 public final class FileOpsHandler implements HttpHandler {

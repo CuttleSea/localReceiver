@@ -11,13 +11,13 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const jar = join(repoRoot, "dist", "ttdrop.jar");
+const jar = join(repoRoot, "dist", "localreceiver.jar");
 const pixiJava = join(repoRoot, ".pixi", "envs", "default", "bin", "java");
 const java = process.env.JAVA || (existsSync(pixiJava) ? pixiJava : "java");
 
 const token = "ab".repeat(32);
 const hash = createHash("sha256").update(token).digest("hex");
-const configDir = mkdtempSync(join(tmpdir(), "ttdrop-acl-config-"));
+const configDir = mkdtempSync(join(tmpdir(), "localreceiver-acl-config-"));
 writeFileSync(join(configDir, "devices.properties"), [
   "d.devx.name=dev",
   `d.devx.hash=${hash}`,
@@ -29,7 +29,7 @@ writeFileSync(join(configDir, "devices.properties"), [
   "d.devx.denyWrite=readonly",
 ].join("\n") + "\n");
 
-const serveDir = mkdtempSync(join(tmpdir(), "ttdrop-acl-"));
+const serveDir = mkdtempSync(join(tmpdir(), "localreceiver-acl-"));
 mkdirSync(join(serveDir, "dev", "secretsub"), { recursive: true });
 mkdirSync(join(serveDir, "dev", "readonly"), { recursive: true });
 mkdirSync(join(serveDir, "dev", "open"), { recursive: true });
@@ -38,7 +38,7 @@ writeFileSync(join(serveDir, "dev", "readonly", "keep.txt"), "keep");
 writeFileSync(join(serveDir, "dev", "open", "hello.txt"), "hello");
 
 const server = spawn(java, ["-jar", jar, "--headless", "--http", "--port", "0"],
-  { cwd: serveDir, env: { ...process.env, TTDROP_CONFIG_DIR: configDir } });
+  { cwd: serveDir, env: { ...process.env, LOCALRECEIVER_CONFIG_DIR: configDir } });
 const port = await new Promise((resolve, reject) => {
   let buf = "";
   const timer = setTimeout(() => reject(new Error("server did not start")), 15000);
@@ -52,7 +52,7 @@ const port = await new Promise((resolve, reject) => {
   });
 });
 const base = `http://localhost:${port}`;
-const asDevice = { headers: { Cookie: `ttdrop=${token}`, Accept: "application/json" } };
+const asDevice = { headers: { Cookie: `localreceiver=${token}`, Accept: "application/json" } };
 
 let pass = 0;
 let fail = 0;

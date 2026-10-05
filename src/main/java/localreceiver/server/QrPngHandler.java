@@ -1,4 +1,4 @@
-package ttdrop.server;
+package localreceiver.server;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import javax.imageio.ImageIO;
 
-import ttdrop.util.QrCode;
+import localreceiver.util.QrCode;
 
 /**
  * {@code GET /qr.png} — a QR code PNG of this site's URL, so the page

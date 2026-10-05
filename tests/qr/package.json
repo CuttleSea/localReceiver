@@ -1,5 +1,5 @@
 {
-  "name": "ttdrop-qr-tests",
+  "name": "localreceiver-qr-tests",
   "private": true,
   "type": "module",
   "dependencies": {

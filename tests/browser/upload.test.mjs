@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 const payload = randomBytes(10 * 1024 * 1024);
-const srcPath = join(tmpdir(), "ttdrop-test-upload.dat");
+const srcPath = join(tmpdir(), "localreceiver-test-upload.dat");
 writeFileSync(srcPath, payload);
 const srcHash = createHash("sha256").update(payload).digest("hex");
 

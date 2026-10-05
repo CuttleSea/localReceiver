@@ -14,7 +14,7 @@ import jacross.plaf.JaCrossIcons;
 
 /**
  * JaCross — a token-driven Fluent 2 / Material 3 look and feel, Tier 0
- * (pure java.desktop). Scoped to the components ttDrop's control
+ * (pure java.desktop). Scoped to the components localReceiver's control
  * window uses; everything else inherits Basic delegates recoloured by
  * the global defaults sweep. Every value placed in UIDefaults is a
  * *UIResource so runtime theme switches would replace it.

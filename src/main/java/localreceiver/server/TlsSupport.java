@@ -1,4 +1,4 @@
-package ttdrop.server;
+package localreceiver.server;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,9 +22,9 @@ import javax.net.ssl.SSLContext;
  * per-user Certificate Authority.
  *
  * <p>On the first HTTPS run a CA keypair is generated into
- * {@code ~/.config/ttdrop/ca.p12} with its certificate exported as
+ * {@code ~/.config/localreceiver/ca.p12} with its certificate exported as
  * {@code ca.crt}. The user installs that one certificate on their
- * devices (served at {@code /ca.crt}); from then on every ttDrop
+ * devices (served at {@code /ca.crt}); from then on every localReceiver
  * server certificate — present and future, regenerated or not — is
  * trusted, which also unlocks service workers and PWA install.
  *
@@ -54,8 +54,8 @@ public final class TlsSupport {
     /** Pre-v0.24 fixed password; kept only to migrate older keystores. */
     private static final String LEGACY_PASS = "ttdrop";
     private static final String PASS_FILE = "keystore.pass";
-    private static final String CA_ALIAS = "ttdrop-ca";
-    private static final String SERVER_ALIAS = "ttdrop";
+    private static final String CA_ALIAS = "localreceiver-ca";
+    private static final String SERVER_ALIAS = "localreceiver";
 
     private TlsSupport() {
     }
@@ -235,7 +235,7 @@ public final class TlsSupport {
                 "-alias", CA_ALIAS,
                 "-keyalg", "RSA", "-keysize", "3072",
                 "-validity", "3650",
-                "-dname", "CN=ttDrop CA (" + user + ")",
+                "-dname", "CN=localReceiver CA (" + user + ")",
                 "-ext", "bc:c=ca:true",
                 "-ext", "ku:c=keyCertSign,cRLSign",
                 "-storetype", "PKCS12",
@@ -253,7 +253,7 @@ public final class TlsSupport {
     private static void generateServerCert(Path configDir, Path caStore, Path caCert, Path keystore,
             Path passFile) throws IOException {
         StringBuilder san = new StringBuilder("SAN=dns:localhost,ip:127.0.0.1");
-        for (String ip : TtDropServer.lanAddresses()) {
+        for (String ip : LocalReceiverServer.lanAddresses()) {
             san.append(",ip:").append(ip);
         }
         Path csr = configDir.resolve("server.csr");
@@ -263,7 +263,7 @@ public final class TlsSupport {
                     "-alias", SERVER_ALIAS,
                     "-keyalg", "RSA", "-keysize", "2048",
                     "-validity", "820",
-                    "-dname", "CN=ttDrop",
+                    "-dname", "CN=localReceiver",
                     "-storetype", "PKCS12",
                     "-keystore", keystore.toString(),
                     "-storepass:file", passFile.toString());

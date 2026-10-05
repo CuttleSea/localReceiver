@@ -1,14 +1,14 @@
-package ttdrop;
+package localreceiver;
 
 import java.awt.GraphicsEnvironment;
 import java.io.IOException;
 import java.nio.file.Path;
 
-import ttdrop.gui.ServerWindow;
-import ttdrop.server.TtDropServer;
+import localreceiver.gui.ServerWindow;
+import localreceiver.server.LocalReceiverServer;
 
 /**
- * Entry point for the ttDrop server application.
+ * Entry point for the localReceiver server application.
  *
  * <p>The working directory the jar is started from becomes the file root
  * served under {@code /files/}. With a display available a Swing control
@@ -19,13 +19,13 @@ import ttdrop.server.TtDropServer;
  */
 public final class Main {
     /** Shown in the window title and startup line; bump with pixi.toml. */
-    public static final String VERSION = "0.24.0";
+    public static final String VERSION = "1.0.0";
     public static final int DEFAULT_PORT = 4646;
 
     private Main() {
     }
 
-    private static void printPairingCode(TtDropServer server) {
+    private static void printPairingCode(LocalReceiverServer server) {
         String code = server.devices().newPairingCode();
         System.out.println("Pairing code: " + code + " (valid 10 minutes, pairs one device)"
                 + " — open " + server.scheme() + "://<this-host>:" + server.getPort()
@@ -61,7 +61,7 @@ public final class Main {
                 case "--root" -> rootFlag = Path.of(args[++i]);
                 default -> {
                     System.err.println("Unknown argument: " + args[i]);
-                    System.err.println("Usage: java -jar ttdrop.jar [--port <n>] [--root <dir>]"
+                    System.err.println("Usage: java -jar localreceiver.jar [--port <n>] [--root <dir>]"
                             + " [--headless] [--https|--http]"
                             + " [--browse|--no-browse] [--pairing|--open]");
                     System.exit(2);
@@ -78,7 +78,7 @@ public final class Main {
             System.err.println("Not a directory: " + fileRoot);
             System.exit(2);
         }
-        TtDropServer server = new TtDropServer(fileRoot);
+        LocalReceiverServer server = new LocalReceiverServer(fileRoot);
         server.setDirBrowseEnabled(dirBrowse);
         server.setPairingRequired(pairing);
 
@@ -86,11 +86,11 @@ public final class Main {
             try {
                 server.start(port, https);
             } catch (java.net.BindException be) {
-                int freePort = TtDropServer.findFreePort();
+                int freePort = LocalReceiverServer.findFreePort();
                 System.err.println("Port " + port + " is already in use; using free port " + freePort);
                 server.start(freePort, https);
             }
-            System.out.println("ttDrop v" + VERSION + " serving " + fileRoot
+            System.out.println("localReceiver v" + VERSION + " serving " + fileRoot
                     + " at " + server.scheme() + "://localhost:" + server.getPort() + "/"
                     + " on port " + server.getPort());
             if (pairing) {

@@ -1,7 +1,7 @@
 {
-"name": "ttDrop",
-"short_name": "ttDrop",
-"description": "Local file transfer: send files to and download files from a ttDrop server on your network.",
+"name": "localReceiver",
+"short_name": "localReceiver",
+"description": "Local file transfer: send files to and download files from a localReceiver server on your network.",
 "start_url": "/",
 "scope": "/",
 "display": "standalone",

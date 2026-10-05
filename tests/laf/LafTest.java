@@ -19,7 +19,7 @@ import jacross.Tokens;
  * Headless verification of the JaCross L&F: token contrast across all
  * four language x scheme combinations, embedded Noto Sans TC coverage
  * (Latin + Traditional Chinese), and offscreen renders of the controls
- * ttDrop's window uses. Run: java -cp dist/ttdrop.jar tests/laf/LafTest.java
+ * localReceiver's window uses. Run: java -cp dist/localreceiver.jar tests/laf/LafTest.java
  */
 public final class LafTest {
     static int pass = 0;
@@ -79,7 +79,7 @@ public final class LafTest {
 
         java.nio.file.Path tmp = java.nio.file.Files.createTempDirectory("laf-picker");
         java.nio.file.Files.createDirectory(tmp.resolve("subfolder"));
-        ttdrop.gui.FolderPicker picker = new ttdrop.gui.FolderPicker(tmp, tmp);
+        localreceiver.gui.FolderPicker picker = new localreceiver.gui.FolderPicker(tmp, tmp);
         check("folder picker renders with entries", distinctColors(render(picker, 460, 280)) > 2);
         check("folder picker starts at the requested folder",
                 picker.currentFolder().equals(tmp));

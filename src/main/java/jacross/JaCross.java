@@ -13,7 +13,7 @@ import javax.swing.UIManager;
  * the OS accent colour, falling back to the brand blue.
  */
 public final class JaCross {
-    /** ttDrop brand blue — also the PWA's theme colour. */
+    /** localReceiver brand blue — also the PWA's theme colour. */
     public static final int BRAND_SEED = 0x2563EB;
 
     private JaCross() {
@@ -27,7 +27,7 @@ public final class JaCross {
         boolean dark = platform.osDark().orElse(false);
         int seed = platform.accentColor().map(Color::getRGB).orElse(BRAND_SEED);
         java.awt.Font font = Fonts.ui(13f);
-        System.out.println("ttDrop UI font: " + font.getFamily());
+        System.out.println("localReceiver UI font: " + font.getFamily());
         return Themes.build(seed, dark, language, font);
     }
 

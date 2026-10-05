@@ -1,4 +1,4 @@
-package ttdrop.server;
+package localreceiver.server;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -69,7 +69,7 @@ public final class ZipHandler implements HttpHandler {
                 ex.sendResponseHeaders(404, -1);
                 return;
             }
-            String name = (target.equals(root) ? "ttdrop" : target.getFileName().toString()) + ".zip";
+            String name = (target.equals(root) ? "localreceiver" : target.getFileName().toString()) + ".zip";
             ex.getResponseHeaders().set("Content-Type", "application/zip");
             ex.getResponseHeaders().set("Content-Disposition",
                     "attachment; filename*=UTF-8''" + URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20"));
